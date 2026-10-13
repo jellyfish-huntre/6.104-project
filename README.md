@@ -9,3 +9,4 @@ This is my personal project for MIT's [6.104 Software Design](https://61040.gith
 - [Concept Specs](docs/design.md#concept-specifications-and-reactions)
 - [UI Sketches](docs/design.md#ui-sketches)
 - [User Journey](docs/design.md#user-journey)
+- [P2 MVP User Journey](docs/p2.md)
