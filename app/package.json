@@ -5,7 +5,8 @@
   "dependencies": {
     "@mit-sdg/sync-engine": "1.1.0",
     "@mit-sdg/sync-engine-http": "1.1.0",
-    "mongodb": "^7.7.0"
+    "mongodb": "^7.7.0",
+    "vue": "3"
   },
   "devDependencies": {
     "typescript": ">=6 <7",
@@ -15,7 +16,7 @@
   "scripts": {
     "generate": "sync-engine artifacts pin",
     "check": "sync-engine check && sync-engine artifacts check && tsc --noEmit",
-    "check:design": "sync-engine check-design design/concepts/*.md design/types.md design/compositions/*.md",
+    "check:design": "sync-engine check-design design/concepts/*.md design/types.md design/compositions/Reservations.md design/compositions/RoamHosting.md && sync-engine check-design design/concepts/*.md design/roam-draft-types.md design/compositions/Roam.md",
     "start": "bun run --parallel start:backend start:frontend",
     "start:backend": "HOST=127.0.0.1 PORT=4000 bun src/main.ts",
     "start:frontend": "HOST=0.0.0.0 BACKEND_URL=http://127.0.0.1:4000 bun web/server.ts",

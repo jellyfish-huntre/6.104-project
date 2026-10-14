@@ -5,5 +5,7 @@ export const policy = httpPolicy({
   publicErrors: {
     ALREADY_RESERVED: "CONFLICT",
     NO_SUCH_RESERVATION: "NOT_FOUND",
+    INVALID_NAME: "INVALID_REQUEST",
+    NOT_FOUND: "NOT_FOUND",
   },
 });

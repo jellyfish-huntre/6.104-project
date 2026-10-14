@@ -53,4 +53,8 @@ export class HostingConcept {
       ? [{ fair: row._id, name: row.name, organizer: row.organizer }]
       : [];
   }
+
+  async _exists({ fair }: { fair: string }) {
+    return { exists: (await this.fairs.countDocuments({ _id: fair }, { limit: 1 })) > 0 };
+  }
 }

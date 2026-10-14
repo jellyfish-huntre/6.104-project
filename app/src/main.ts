@@ -16,7 +16,7 @@ const server = Bun.serve({
     "/health": async () => {
       try {
         await db
-          .collection("reserving.reservations")
+          .collection("hosting.fairs")
           .findOne({}, { maxTimeMS: 2000, timeoutMS: 3000 });
         return Response.json(
           { status: "ok" },

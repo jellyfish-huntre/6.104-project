@@ -53,4 +53,7 @@ edit(organizer: Person, fair: Fair, name: String): returns ()
 ```queries
 _get(fair: Fair) : optional (fair: Fair, name: String, organizer: Person)
   Gets the fair corresponding to the fair id, and no rows when the fair does not exist.
+
+_exists(fair: Fair) : one (exists: Flag)
+  Answers true when the fair exists and false otherwise.
 ```

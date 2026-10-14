@@ -1,5 +1,6 @@
 import { assemble } from "@mit-sdg/sync-engine/assembly";
-import { composition } from "./compositions/Reservations.ts";
+import { composition as reservations } from "./compositions/Reservations.ts";
+import { composition as roam } from "./compositions/Roam.ts";
 import { ReservingConcept } from "./concepts/Reserving.ts";
 import { HostingConcept } from "./concepts/Hosting.ts";
 import { applicationConceptSet } from "./concepts.ts";
@@ -12,7 +13,7 @@ export function assembleApplication() {
       Reserving: new ReservingConcept(db),
       Hosting: new HostingConcept(db),
     },
-    composition: { Reservations: composition },
+    composition: { Reservations: reservations, Roam: roam },
     // Print what went wrong. Otherwise a failure only shows up as INTERNAL_ERROR.
     rawFaultReporter: ({ error }) => console.error(error),
   });

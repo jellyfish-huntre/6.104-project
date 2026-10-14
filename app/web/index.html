@@ -3,18 +3,31 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Reservations</title>
+    <title>Roam · Host a fair</title>
     <link rel="stylesheet" href="./styles.css" />
     <script type="module" src="./app.ts"></script>
   </head>
   <body>
-    <h1>Reservations</h1>
-    <form id="reserve">
-      <input name="user" placeholder="Your name" required />
-      <input name="resource" placeholder="friday-7pm-table-4" required />
-      <button>Reserve</button>
-    </form>
-    <p id="status"></p>
-    <ul id="reservations"></ul>
+    <main id="app">
+      <h1>Roam</h1>
+      <p>Create a fair for people to explore.</p>
+      <form @submit.prevent="createFair">
+        <label>
+          Organizer name
+          <input v-model="organizer" name="organizer" autocomplete="name" required />
+        </label>
+        <label>
+          Fair name
+          <input v-model="name" name="name" placeholder="Fall Club Fair" required />
+        </label>
+        <button :disabled="busy">{{ busy ? "Working…" : "Create fair" }}</button>
+      </form>
+      <p role="status" aria-live="polite">{{ status }}</p>
+      <section v-if="fair" aria-label="Fair details">
+        <h2>{{ fair.name }}</h2>
+        <p>Organized by {{ fair.organizer }}</p>
+        <p>Fair ID: <code>{{ fair.fair }}</code></p>
+      </section>
+    </main>
   </body>
 </html>

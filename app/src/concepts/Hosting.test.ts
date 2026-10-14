@@ -25,6 +25,7 @@ test("creates and retrieves a fair", async () => {
   expect(await hosting._get({ fair })).toEqual([
     { fair, organizer: "maya", name: "Club Fair" },
   ]);
+  expect(await hosting._exists({ fair })).toEqual({ exists: true });
 });
 
 test("uses IDs rather than names to distinguish fairs", async () => {
@@ -51,6 +52,7 @@ test("only the organizer can edit a fair", async () => {
 
 test("refuses missing fairs and returns no row for lookup", async () => {
   expect(await hosting._get({ fair: "missing" })).toEqual([]);
+  expect(await hosting._exists({ fair: "missing" })).toEqual({ exists: false });
   await expect(
     hosting.edit({ organizer: "maya", fair: "missing", name: "New" }),
   ).rejects.toBeInstanceOf(NoSuchFair);
