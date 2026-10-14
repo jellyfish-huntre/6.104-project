@@ -99,7 +99,7 @@ actions
 ## Exhibiting
 
 ```text
-concept Exhibiting [Person, Space, Position]
+concept Exhibiting [Person, Space, Position, Footprint]
 purpose let fair organizers set up booths for visitors to find them
 principle an organizer places booths in a fair and assigns representatives;
   visitors can find the booths and see what each organization does
@@ -107,18 +107,19 @@ principle an organizer places booths in a fair and assigns representatives;
 state
   a set of Booths with
     a Space
-    a Position
+    a Footprint
     a name String
     a description String
     an organizer Person
     a representatives set of Person
+    Rule: booth footprints in the same space do not overlap
 
 actions
-  create(organizer: Person, space: Space, position: Position,
+  create(organizer: Person, space: Space, footprint: Footprint,
     name: String, description: String): returns (booth: Booth)
-    where no booth exists at position in space
+    where footprint has positive dimensions and does not overlap a booth in space
     then creates and returns a booth with the given organizer, space,
-      position, name, and description; it has no representatives yet
+      footprint, name, and description; it has no representatives yet
 
   edit(organizer: Person, booth: Booth, name: String, description: String)
     where booth exists and organizer owns it
@@ -131,6 +132,10 @@ actions
   removeRepresentative(organizer: Person, booth: Booth, representative: Person)
     where booth exists and organizer owns it and representative belongs to it
     then removes representative from the booth
+
+queries
+  _at(space: Space, position: Position): returns (booth: Booth)
+    when the position lies inside a booth's footprint in that space
 ```
 
 ## Queueing
@@ -231,8 +236,12 @@ a separate private call. The first version only needs open group calls.
 ## How the concepts fit together
 
 `Hosting` creates each fair. Its `Fair` is the `Space` in `Navigating` and
-`Exhibiting`: people enter it, and the organizer places booths at positions
-inside it. `Exhibiting` owns each booth's description and representative list.
+`Exhibiting`: people enter it, and the organizer places booths inside it.
+`Exhibiting` owns each booth's area, description, and representative list.
+In Roam, a position is an integer coordinate on a 10 by 10 grid. Each booth
+occupies a rectangle of cells. The entrance is at (0, 0) and stays outside
+booths. Visitors move one horizontal or vertical cell at a time and can enter
+booth areas or share a cell.
 For now, the fair organizer also owns each booth. The booth is the `Place` in
 `Calling` and the `Target` in `Queueing`.
 

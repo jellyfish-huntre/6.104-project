@@ -40,7 +40,7 @@ edit(organizer: Person, fair: Fair, name: String): returns ()
   then
     changes the fair's name
     returns
-  where fair doesn't exist or organizer doesn't own it
+  where name is nonempty and (fair doesn't exist or organizer doesn't own it)
   then
     refuses NOT_FOUND "That fair is not found"
   where name is empty
