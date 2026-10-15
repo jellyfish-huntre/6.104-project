@@ -22,7 +22,7 @@ import {
   NoSuchBooth, AlreadyAssigned, NotAssigned,
   InvalidMeetingUrl,
 } from "./concepts/Exhibiting.ts";
-import { NavigatingConcept, AlreadyPresent, NotPresent, InvalidMove } from "./concepts/Navigating.ts";
+import { NavigatingConcept, AlreadyPresent, NotPresent, InvalidMove, InvalidGuestToken } from "./concepts/Navigating.ts";
 import { CallingConcept, InvalidCallUrl, PlaceBusy, HostBusy, NoSuchCall } from "./concepts/Calling.ts";
 
 const reserving = registerConcept({
@@ -75,7 +75,10 @@ const exhibiting = registerConcept({
 const navigating = registerConcept({
   class: NavigatingConcept,
   spec: navigatingSpec,
-  refusals: { ALREADY_PRESENT: AlreadyPresent, NOT_PRESENT: NotPresent, INVALID_MOVE: InvalidMove },
+  refusals: {
+    ALREADY_PRESENT: AlreadyPresent, NOT_PRESENT: NotPresent,
+    INVALID_MOVE: InvalidMove, INVALID_GUEST_TOKEN: InvalidGuestToken,
+  },
 });
 
 const calling = registerConcept({

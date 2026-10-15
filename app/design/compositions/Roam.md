@@ -16,15 +16,19 @@ Roam.AddRepresentative at /booths/representatives/add
 Roam.RemoveRepresentative at /booths/representatives/remove
 ```
 
-A person [enters the fair](reaction:Roam.EnterFair) at {x: 0, y: 0}, may [move](reaction:Roam.Move), and may [leave](reaction:Roam.LeaveFair). A [valid move](view:Roam.ReachableDestination) goes one cell horizontally or vertically and stays within the grid. People may share a cell and move through booth areas. [Presence inside a booth](view:Roam.PresentAtBooth) is required for opening or joining its call. When a host moves outside the booth, [their open call closes](reaction:Roam.HostExitsBoothClosesCall). When a host leaves the fair, [their open call closes](reaction:Roam.DepartedHostClosesCall).
+A signed-in person [enters the fair](reaction:Roam.EnterFair) at {x: 0, y: 0}, may [move](reaction:Roam.Move), and may [leave](reaction:Roam.LeaveFair). An unsigned guest [enters](reaction:Roam.GuestEnterFair), [moves](reaction:Roam.GuestMove), and [leaves](reaction:Roam.GuestLeaveFair) using a private browser token. A [valid move](view:Roam.ReachableDestination) goes one cell horizontally or vertically and stays within the grid. People may share a cell and move through booth areas. The presence page includes both account names and guest pseudonyms. [Presence inside a booth](view:Roam.PresentAtBooth) is required for opening or joining its call. When a host moves outside the booth, [their open call closes](reaction:Roam.HostExitsBoothClosesCall). When a host leaves the fair, [their open call closes](reaction:Roam.DepartedHostClosesCall).
 
 ```endpoints
 Roam.EnterFair at /fairs/enter
 Roam.Move at /fairs/move
 Roam.LeaveFair at /fairs/leave
+Roam.GuestEnterFair at /fairs/guest-enter
+Roam.GuestMove at /fairs/guest-move
+Roam.GuestLeaveFair at /fairs/guest-leave
+Roam.GuestEnterUnknownFair at /fairs/guest-enter
 ```
 
-An assigned representative inside the booth [may open a call](view:Roam.RepresentativeMayOpenCall). [Opening a call](reaction:Roam.OpenCall) publishes its availability at the booth. A signed-in visitor inside that booth [joins an open call](reaction:Roam.JoinCall) to receive its external link. An unsigned guest with the fair code [gets the open call link](reaction:Roam.GuestJoinCall) without an account; the guest browser offers it while their avatar is inside the booth. Only its host [closes the call](reaction:Roam.CloseCall). The application cannot observe whether a person actually enters or leaves the external video meeting.
+An assigned representative inside the booth [may open a call](view:Roam.RepresentativeMayOpenCall). [Opening a call](reaction:Roam.OpenCall) publishes its availability at the booth. A signed-in visitor inside that booth [joins an open call](reaction:Roam.JoinCall) to receive its external link. An unsigned guest with the fair code and an active presence inside the booth [gets the open call link](reaction:Roam.GuestJoinCall) without an account. Only its host [closes the call](reaction:Roam.CloseCall). The application cannot observe whether a person actually enters or leaves the external video meeting.
 
 ```endpoints
 Roam.OpenCall at /calls/open
@@ -33,6 +37,8 @@ Roam.GuestJoinCall at /calls/guest-join
 Roam.GuestJoinCallUnknownFair at /calls/guest-join
 Roam.GuestJoinCallWrongBooth at /calls/guest-join
 Roam.GuestJoinCallClosed at /calls/guest-join
+Roam.GuestJoinCallOutside at /calls/guest-join
+Roam.GuestJoinCallAbsent at /calls/guest-join
 Roam.CloseCall at /calls/close
 ```
 

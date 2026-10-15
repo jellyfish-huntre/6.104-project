@@ -12,6 +12,12 @@ concrete Position
 concrete Footprint
   A rectangle {x, y, width, height} of grid cells. x and y are the top-left
   coordinate, and width and height are positive integers.
+
+concrete Participant
+  A signed-in account or a pseudonymous guest in the shared fair map.
+
+concrete GuestToken
+  A private random browser token for guest presence.
 ```
 
 ```instances
@@ -30,9 +36,10 @@ instantiate Exhibiting with
   Footprint is Footprint
 
 instantiate Navigating with
-  Person is Authenticating.Account
+  Person is Participant
   Space is Hosting.Fair
   Position is Position
+  GuestToken is GuestToken
 
 instantiate Calling with
   Person is Authenticating.Account

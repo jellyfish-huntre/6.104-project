@@ -88,26 +88,32 @@
         </button>
 
         <h3>Explore the fair</h3>
-        <p class="hint">Move the blue triangle with the arrow keys or WASD. Select a colored booth cell to read about it. Anyone in a booth can get its live call link. Sign in if you want your position shared with others in this fair.</p>
+        <p class="hint">Move your triangle with the arrow keys or WASD. Other people appear as triangles in their own colors; yours has a white outline. Select a colored booth cell to read about it. Anyone in a booth can get its live call link.</p>
         <p class="hint" aria-live="polite">Your avatar is at ({{ avatar.x }}, {{ avatar.y }}).</p>
-        <p v-if="account" class="hint">{{ joinedFair ? 'You are in the fair.' : 'Entering the fair…' }} {{ people.length }} signed-in {{ people.length === 1 ? 'person' : 'people' }} here.</p>
+        <p class="hint">{{ joinedFair ? 'You are in the fair.' : 'Entering the fair…' }} {{ people.length }} {{ people.length === 1 ? 'person' : 'people' }} here.</p>
         <div class="discovery-layout" :class="{ 'has-details': selectedBooth }">
           <div class="fair-map" aria-label="Fair booth map">
             <template v-for="cell in mapCells" :key="`${cell.x},${cell.y}`">
               <button v-if="cell.booth" class="map-cell booth-cell"
                 :class="{ selected: selectedBoothId === cell.booth.booth }"
                 :style="{ '--booth-hue': cell.hue }"
-                :aria-label="`${cell.booth.name} at (${cell.x}, ${cell.y})${cell.hasAvatar ? ', your avatar is here' : ''}`"
+                :aria-label="`${cell.booth.name} at (${cell.x}, ${cell.y})${cell.avatarLabels ? ': ' + cell.avatarLabels : ''}`"
                 @click="selectedBoothId = cell.booth.booth">
                 <span v-if="cell.showName">{{ cell.booth.name }}</span>
-                <span v-if="cell.hasAvatar" class="avatar" aria-hidden="true"></span>
-                <span v-if="cell.others" class="other-avatars" :aria-label="`${cell.others} other people here`">{{ cell.others }}</span>
+                <span v-if="cell.avatars.length" class="avatar-stack" aria-hidden="true">
+                  <span v-for="person in cell.avatars" :key="person.person" class="avatar"
+                    :class="{ own: person.own }" :style="{ '--avatar-color': person.color }" :title="person.label"></span>
+                  <span v-if="cell.extraAvatars" class="avatar-overflow">+{{ cell.extraAvatars }}</span>
+                </span>
               </button>
               <div v-else class="map-cell empty-cell" :class="{ entrance: cell.x === 0 && cell.y === 0 }"
-                :aria-label="cell.hasAvatar ? `Your avatar at (${cell.x}, ${cell.y})` : cell.x === 0 && cell.y === 0 ? 'Entrance at (0, 0)' : `Empty cell at (${cell.x}, ${cell.y})`">
+                :aria-label="`${cell.x === 0 && cell.y === 0 ? 'Entrance' : 'Empty cell'} at (${cell.x}, ${cell.y})${cell.avatarLabels ? ': ' + cell.avatarLabels : ''}`">
                 {{ cell.x === 0 && cell.y === 0 ? 'Start' : '' }}
-                <span v-if="cell.hasAvatar" class="avatar" aria-hidden="true"></span>
-                <span v-if="cell.others" class="other-avatars" :aria-label="`${cell.others} other people here`">{{ cell.others }}</span>
+                <span v-if="cell.avatars.length" class="avatar-stack" aria-hidden="true">
+                  <span v-for="person in cell.avatars" :key="person.person" class="avatar"
+                    :class="{ own: person.own }" :style="{ '--avatar-color': person.color }" :title="person.label"></span>
+                  <span v-if="cell.extraAvatars" class="avatar-overflow">+{{ cell.extraAvatars }}</span>
+                </span>
               </div>
             </template>
           </div>

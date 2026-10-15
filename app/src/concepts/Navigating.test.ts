@@ -24,3 +24,28 @@ test("tracks a person and permits only adjacent in-bounds moves", async () => {
   await expect(navigating.move({ person: "visitor", destination: { x: 2, y: 0 } }))
     .rejects.toBeInstanceOf(NotPresent);
 });
+
+test("shares guest positions without exposing the guest token", async () => {
+  const token = crypto.randomUUID();
+  const otherToken = crypto.randomUUID();
+  const entered = await navigating.enterGuest({ token, space: "guest-fair" });
+  const other = await navigating.enterGuest({ token: otherToken, space: "guest-fair" });
+  expect(entered.position).toEqual({ x: 0, y: 0 });
+  expect(entered.person).not.toBe(other.person);
+  expect(entered.person).not.toContain(token);
+  await expect(navigating.moveGuest({ token, destination: { x: 2, y: 0 } }))
+    .rejects.toBeInstanceOf(InvalidMove);
+  await navigating.moveGuest({ token, destination: { x: 1, y: 0 } });
+  expect(await navigating._guestLocation({ token }))
+    .toEqual([{ person: entered.person, space: "guest-fair", position: { x: 1, y: 0 } }]);
+  expect(await navigating._present({ space: "guest-fair" })).toEqual(expect.arrayContaining([
+    { person: entered.person, position: { x: 1, y: 0 } },
+    { person: other.person, position: { x: 0, y: 0 } },
+  ]));
+  expect(JSON.stringify(await navigating._present({ space: "guest-fair" }))).not.toContain(token);
+  expect((await navigating.enterGuest({ token, space: "guest-fair" })).position).toEqual({ x: 1, y: 0 });
+  await navigating.leaveGuest({ token });
+  expect(await navigating._guestInSpace({ token, space: "guest-fair" })).toEqual({ present: false });
+  await expect(navigating.moveGuest({ token, destination: { x: 2, y: 0 } }))
+    .rejects.toBeInstanceOf(NotPresent);
+});

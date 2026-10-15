@@ -24,8 +24,10 @@ the fair's 10 by 10 grid; selecting any cell occupied by a booth reveals that
 booth's details. Empty cells remain visible, including the entrance at (0, 0).
 A triangular avatar starts at the entrance and moves one cell per arrow-key or
 WASD press, staying within the grid and passing through booth areas. Entering a
-booth's area shows its details. A guest's avatar position is local to the
-browser page. After sign-in, Navigating records the person's position and
-shares it with others in the fair. Existing fair links still open directly.
+booth's area shows its details. Navigating records both guests and signed-in
+people so their colored triangular avatars are visible to others in the fair.
+A guest's private token stays in their browser; the public map shows only a
+pseudonym. Guest presence expires after inactivity. Existing fair links still
+open directly.
 When the avatar moves out of a booth, that booth is no longer highlighted and
 its details panel closes. Moving into another booth selects that booth instead.

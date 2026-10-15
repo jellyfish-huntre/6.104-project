@@ -6,7 +6,7 @@ Keep track of where people are in a shared space, so others can see who is prese
 
 ## Principle
 
-A visitor enters a space at its entrance. As the visitor moves into a booth's area, their position changes for everyone viewing the space. When the visitor leaves, they no longer appear there. A person cannot enter again without first leaving.
+A visitor enters a space at its entrance. As the visitor moves into a booth's area, their position changes for everyone viewing the space. Signed-in people use their account identity. Guests use a private random token, which Navigating turns into a public pseudonym. Guest presence expires after 30 seconds without a refresh; the token itself is never returned in the public presence list.
 
 ## Types
 
@@ -19,6 +19,9 @@ external Space
 
 external Position
   A location within the space; the application chooses its coordinate system and allowed moves.
+
+external GuestToken
+  A private, random browser token used to recognize a guest without an account.
 ```
 
 ## State
@@ -28,6 +31,9 @@ a set of Presences with
   a unique person Person
   a space Space
   a position Position
+  an optional guestSeenAt String
+
+Rule: Guest presences are visible for 30 seconds after their most recent enter or move.
 ```
 
 ## Actions
@@ -62,6 +68,46 @@ leave(person: Person) : returns ()
   where person is not present
   then
     refuses NOT_PRESENT "That person is not in a space."
+
+enterGuest(token: GuestToken, space: Space) : returns (person: Person, position: Position)
+  where token is invalid
+  then
+    refuses INVALID_GUEST_TOKEN "Use a valid guest token."
+  where the guest is already active in space
+  then
+    refresh the guest's presence without changing its position
+    returns person, position
+  where the guest is absent or in another space
+  then
+    record the guest at the entrance of space
+    returns person, position
+
+moveGuest(token: GuestToken, destination: Position) : returns (person: Person, position: Position)
+  where token is invalid
+  then
+    refuses INVALID_GUEST_TOKEN "Use a valid guest token."
+  where the guest is active and destination is one orthogonal step away within the grid
+  then
+    change the guest's position and refresh its presence
+    returns person, position
+  where the guest is active and destination is not a valid step
+  then
+    refuses INVALID_MOVE "Move one cell within the fair."
+  where the guest is absent or expired
+  then
+    refuses NOT_PRESENT "That person is not in a space."
+
+leaveGuest(token: GuestToken) : returns ()
+  where token is invalid
+  then
+    refuses INVALID_GUEST_TOKEN "Use a valid guest token."
+  where the guest is active
+  then
+    remove the guest's presence
+    returns
+  where the guest is absent
+  then
+    refuses NOT_PRESENT "That person is not in a space."
 ```
 
 ## Queries
@@ -75,4 +121,10 @@ _present(space: Space) : many (person: Person, position: Position)
 
 _inSpace(person: Person, space: Space) : one (present: Flag)
   Answers whether the person is currently in the space.
+
+_guestLocation(token: GuestToken) : optional (person: Person, space: Space, position: Position)
+  Gets the active guest's location from its private token, and no row when absent or expired.
+
+_guestInSpace(token: GuestToken, space: Space) : one (present: Flag)
+  Answers whether the guest token has an active presence in the space.
 ```

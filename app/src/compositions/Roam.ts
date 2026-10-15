@@ -83,8 +83,26 @@ const callInput: EndpointValidator = (value) =>
 
 const guestCallInput: EndpointValidator = (value) =>
   record(value) && typeof value.code === "string" && /^[A-F0-9]{8}$/i.test(value.code) &&
-    bounded(value.booth, 100)
+    bounded(value.booth, 100) && typeof value.token === "string" &&
+    /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(value.token)
     ? { ok: true } : { ok: false, detail: "Enter a fair code and booth." };
+
+const guestFairInput: EndpointValidator = (value) =>
+  record(value) && bounded(value.fair, 100) && typeof value.token === "string" &&
+    /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(value.token)
+    ? { ok: true } : { ok: false, detail: "Enter a fair and guest token." };
+
+const guestMoveInput: EndpointValidator = (value) =>
+  record(value) && typeof value.token === "string" &&
+    /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(value.token) &&
+    record(value.destination) && Number.isSafeInteger(value.destination.x) &&
+    Number.isSafeInteger(value.destination.y)
+    ? { ok: true } : { ok: false, detail: "Enter a guest token and grid destination." };
+
+const guestTokenInput: EndpointValidator = (value) =>
+  record(value) && typeof value.token === "string" &&
+    /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(value.token)
+    ? { ok: true } : { ok: false, detail: "Enter a guest token." };
 
 const openCallInput: EndpointValidator = (value) =>
   record(value) && sessionFromCookie(value) && bounded(value.booth, 100) &&
@@ -294,6 +312,38 @@ const LeaveFair = endpoint(
   { input: { required: ["session"] } },
 );
 
+const GuestEnterFair = endpoint(
+  "/fairs/guest-enter",
+  ({ fair, token, person, position }) => receive({ fair, token })
+    .where(Hosting._exists({ fair }).is({ exists: true }))
+    .then(Navigating.enterGuest({ token, space: fair }).responds({ person, position }))
+    .then(respond({ person, position })),
+  { input: { required: ["fair", "token"] }, validators: { input: guestFairInput } },
+);
+
+const GuestEnterUnknownFair = endpoint(
+  "/fairs/guest-enter",
+  ({ fair, token }) => receive({ fair, token })
+    .where(Hosting._exists({ fair }).is({ exists: false }))
+    .then(respond({ error: "NOT_FOUND" })),
+);
+
+const GuestMove = endpoint(
+  "/fairs/guest-move",
+  ({ token, destination, person, position }) => receive({ token, destination })
+    .then(Navigating.moveGuest({ token, destination }).responds({ person, position }))
+    .then(respond({ person, position })),
+  { input: { required: ["token", "destination"] }, validators: { input: guestMoveInput } },
+);
+
+const GuestLeaveFair = endpoint(
+  "/fairs/guest-leave",
+  ({ token }) => receive({ token })
+    .then(Navigating.leaveGuest({ token }))
+    .then(respond({ left: true })),
+  { input: { required: ["token"] }, validators: { input: guestTokenInput } },
+);
+
 const FairPresence = former(
   "the people in (fair)",
   ({ fair }, { person, position }) => where(Hosting._exists({ fair }).is({ exists: true })).form({
@@ -341,28 +391,30 @@ const JoinCall = endpoint(
 
 const GuestJoinCall = endpoint(
   "/calls/guest-join",
-  ({ code, booth, space, call, joinUrl }) =>
-    receive({ code, booth })
+  ({ code, booth, token, space, position, person, call, joinUrl }) =>
+    receive({ code, booth, token })
       .where(
         Hosting._byCode({ code }).is({ fair: space }),
         Exhibiting._inSpace({ booth, space }).is({ inSpace: true }),
+        Navigating._guestLocation({ token }).is({ person, space, position }),
+        Exhibiting._contains({ booth, position }).is({ contains: true }),
         Calling._openAt({ place: booth }).is({ call }),
       )
-      .then(Calling.join({ person: "guest", call }).responds({ joinUrl }))
+      .then(Calling.join({ person, call }).responds({ joinUrl }))
       .then(respond({ joinUrl })),
-  { input: { required: ["code", "booth"] }, validators: { input: guestCallInput } },
+  { input: { required: ["code", "booth", "token"] }, validators: { input: guestCallInput } },
 );
 
 const GuestJoinCallUnknownFair = endpoint(
   "/calls/guest-join",
-  ({ code, booth }) => receive({ code, booth })
+  ({ code, booth, token }) => receive({ code, booth, token })
     .where(Hosting._codeExists({ code }).is({ exists: false }))
     .then(respond({ error: "NOT_FOUND" })),
 );
 
 const GuestJoinCallWrongBooth = endpoint(
   "/calls/guest-join",
-  ({ code, booth, space }) => receive({ code, booth })
+  ({ code, booth, token, space }) => receive({ code, booth, token })
     .where(
       Hosting._byCode({ code }).is({ fair: space }),
       Exhibiting._inSpace({ booth, space }).is({ inSpace: false }),
@@ -372,13 +424,38 @@ const GuestJoinCallWrongBooth = endpoint(
 
 const GuestJoinCallClosed = endpoint(
   "/calls/guest-join",
-  ({ code, booth, space }) => receive({ code, booth })
+  ({ code, booth, token, space, position }) => receive({ code, booth, token })
     .where(
       Hosting._byCode({ code }).is({ fair: space }),
       Exhibiting._inSpace({ booth, space }).is({ inSpace: true }),
+      Navigating._guestLocation({ token }).is({ space, position }),
+      Exhibiting._contains({ booth, position }).is({ contains: true }),
       Calling._isOpen({ place: booth }).is({ open: false }),
     )
     .then(respond({ error: "NOT_FOUND" })),
+);
+
+const GuestJoinCallOutside = endpoint(
+  "/calls/guest-join",
+  ({ code, booth, token, space, position }) => receive({ code, booth, token })
+    .where(
+      Hosting._byCode({ code }).is({ fair: space }),
+      Exhibiting._inSpace({ booth, space }).is({ inSpace: true }),
+      Navigating._guestLocation({ token }).is({ space, position }),
+      Exhibiting._contains({ booth, position }).is({ contains: false }),
+    )
+    .then(respond({ error: "NOT_ALLOWED" })),
+);
+
+const GuestJoinCallAbsent = endpoint(
+  "/calls/guest-join",
+  ({ code, booth, token, space }) => receive({ code, booth, token })
+    .where(
+      Hosting._byCode({ code }).is({ fair: space }),
+      Exhibiting._inSpace({ booth, space }).is({ inSpace: true }),
+      Navigating._guestInSpace({ token, space }).is({ present: false }),
+    )
+    .then(respond({ error: "NOT_ALLOWED" })),
 );
 
 const OpenCallNotRepresentative = endpoint(
@@ -513,9 +590,11 @@ export const composition = {
   CreateFair, OpenFairCode, FairCodeNotFound, GetFairPage, FairNotFound,
   CreateBooth, EditBooth, SetBoothMeetingLink, GetBoothMeetingLink,
   AddRepresentative, RemoveRepresentative,
-  EnterFair, Move, LeaveFair, FairPresence, GetPresence,
+  EnterFair, Move, LeaveFair, GuestEnterFair, GuestEnterUnknownFair,
+  GuestMove, GuestLeaveFair, FairPresence, GetPresence,
   OpenCall, JoinCall, GuestJoinCall, GuestJoinCallUnknownFair,
-  GuestJoinCallWrongBooth, GuestJoinCallClosed, CloseCall,
+  GuestJoinCallWrongBooth, GuestJoinCallClosed, GuestJoinCallOutside,
+  GuestJoinCallAbsent, CloseCall,
   OpenCallNotRepresentative, OpenCallOutside, OpenCallAbsent,
   JoinCallOutside, JoinCallAbsent, JoinCallClosed,
   OpenCallUnknownBooth, JoinCallUnknownBooth, OpenCallNoSession, JoinCallNoSession,

@@ -4,10 +4,13 @@ A signed-in person [enters a fair](reaction:Roam.EnterFair) at (0, 0),
 [moves](reaction:Roam.Move) one orthogonal cell at a time, and
 [leaves](reaction:Roam.LeaveFair). Navigating records their position.
 The public fair-code lookup lets a guest browse the map without an account.
-An anonymous guest can request the link for an open booth call using that
-fair's code. The browser offers this action when the guest's avatar is inside
-the booth. The server verifies the code, booth, and open call; a guest's
-browser-only position is not verified by the server.
+A guest [enters](reaction:Roam.GuestEnterFair) and
+[moves](reaction:Roam.GuestMove) using a private browser token. Their public
+pseudonym and position appear in fair presence. An inactive guest disappears
+after 30 seconds. A guest may [leave](reaction:Roam.GuestLeaveFair).
+An [unknown fair](reaction:Roam.GuestEnterUnknownFair) cannot be entered.
+The guest can request an open booth call link using the fair code and token;
+the server verifies that the guest is inside that booth.
 [Reading fair presence](reaction:Roam.GetPresence) returns the
 [people and positions](former:Roam.FairPresence) currently in that fair.
 
@@ -15,6 +18,10 @@ browser-only position is not verified by the server.
 Roam.EnterFair at /fairs/enter
 Roam.Move at /fairs/move
 Roam.LeaveFair at /fairs/leave
+Roam.GuestEnterFair at /fairs/guest-enter
+Roam.GuestMove at /fairs/guest-move
+Roam.GuestLeaveFair at /fairs/guest-leave
+Roam.GuestEnterUnknownFair at /fairs/guest-enter
 Roam.GetPresence at /fairs/presence
 ```
 
@@ -27,6 +34,8 @@ host without publishing its link. Only the host may [close it](reaction:Roam.Clo
 An [unknown fair code](reaction:Roam.GuestJoinCallUnknownFair),
 [booth outside that fair](reaction:Roam.GuestJoinCallWrongBooth), or
 [closed call](reaction:Roam.GuestJoinCallClosed) yields no link for a guest.
+A guest [outside the booth](reaction:Roam.GuestJoinCallOutside) or
+[absent from the fair](reaction:Roam.GuestJoinCallAbsent) cannot get its link.
 An organizer may save a meeting link during booth setup. An organizer or
 assigned representative may [retrieve that saved link](reaction:Roam.GetBoothMeetingLink)
 to open a call with it. The booth page uses the saved link when opening a call;
@@ -58,6 +67,8 @@ Roam.GuestJoinCall at /calls/guest-join
 Roam.GuestJoinCallUnknownFair at /calls/guest-join
 Roam.GuestJoinCallWrongBooth at /calls/guest-join
 Roam.GuestJoinCallClosed at /calls/guest-join
+Roam.GuestJoinCallOutside at /calls/guest-join
+Roam.GuestJoinCallAbsent at /calls/guest-join
 Roam.JoinCallOutside at /calls/join
 Roam.JoinCallAbsent at /calls/join
 Roam.JoinCallClosed at /calls/join

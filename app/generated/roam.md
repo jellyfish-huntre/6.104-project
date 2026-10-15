@@ -29,7 +29,7 @@ Defined in [Authenticating](../design/concepts/Authenticating.md), line 1.
 
 #### Instances
 
-- `Authenticating` — instance of `Authenticating` — [Application types](../design/types.md), line 28.
+- `Authenticating` — instance of `Authenticating` — [Application types](../design/types.md), line 34.
 
 ### Calling
 
@@ -54,9 +54,9 @@ Defined in [Calling](../design/concepts/Calling.md), line 1.
 
 #### Instances
 
-- `Calling` — instance of `Calling` — [Application types](../design/types.md), line 47.
-  - `Person` is `Authenticating.Account` — [Application types](../design/types.md), line 48.
-  - `Place` is `Exhibiting.Booth` — [Application types](../design/types.md), line 49.
+- `Calling` — instance of `Calling` — [Application types](../design/types.md), line 54.
+  - `Person` is `Authenticating.Account` — [Application types](../design/types.md), line 55.
+  - `Place` is `Exhibiting.Booth` — [Application types](../design/types.md), line 56.
 
 ### Exhibiting
 
@@ -97,11 +97,11 @@ Defined in [Exhibiting](../design/concepts/Exhibiting.md), line 1.
 
 #### Instances
 
-- `Exhibiting` — instance of `Exhibiting` — [Application types](../design/types.md), line 36.
-  - `Footprint` is `Footprint` — [Application types](../design/types.md), line 40.
-  - `Person` is `Authenticating.Account` — [Application types](../design/types.md), line 37.
-  - `Position` is `Position` — [Application types](../design/types.md), line 39.
-  - `Space` is `Hosting.Fair` — [Application types](../design/types.md), line 38.
+- `Exhibiting` — instance of `Exhibiting` — [Application types](../design/types.md), line 42.
+  - `Footprint` is `Footprint` — [Application types](../design/types.md), line 46.
+  - `Person` is `Authenticating.Account` — [Application types](../design/types.md), line 43.
+  - `Position` is `Position` — [Application types](../design/types.md), line 45.
+  - `Space` is `Hosting.Fair` — [Application types](../design/types.md), line 44.
 
 ### Hosting
 
@@ -130,8 +130,8 @@ Defined in [Hosting](../design/concepts/Hosting.md), line 1.
 
 #### Instances
 
-- `Hosting` — instance of `Hosting` — [Application types](../design/types.md), line 33.
-  - `Person` is `Authenticating.Account` — [Application types](../design/types.md), line 34.
+- `Hosting` — instance of `Hosting` — [Application types](../design/types.md), line 39.
+  - `Person` is `Authenticating.Account` — [Application types](../design/types.md), line 40.
 
 ### Navigating
 
@@ -146,19 +146,31 @@ Defined in [Navigating](../design/concepts/Navigating.md), line 1.
   - Refuses `NOT_PRESENT`: That person is not in a space.
 - `leave(person: Person) : returns ()`
   - Refuses `NOT_PRESENT`: That person is not in a space.
+- `enterGuest(token: GuestToken, space: Space) : returns (person: Person, position: Position)`
+  - Refuses `INVALID_GUEST_TOKEN`: Use a valid guest token.
+- `moveGuest(token: GuestToken, destination: Position) : returns (person: Person, position: Position)`
+  - Refuses `INVALID_GUEST_TOKEN`: Use a valid guest token.
+  - Refuses `INVALID_MOVE`: Move one cell within the fair.
+  - Refuses `NOT_PRESENT`: That person is not in a space.
+- `leaveGuest(token: GuestToken) : returns ()`
+  - Refuses `INVALID_GUEST_TOKEN`: Use a valid guest token.
+  - Refuses `NOT_PRESENT`: That person is not in a space.
 
 #### Queries
 
 - `_location(person: Person) : optional (person: Person, space: Space, position: Position)`
 - `_present(space: Space) : many (person: Person, position: Position)`
 - `_inSpace(person: Person, space: Space) : one (present: Flag)`
+- `_guestLocation(token: GuestToken) : optional (person: Person, space: Space, position: Position)`
+- `_guestInSpace(token: GuestToken, space: Space) : one (present: Flag)`
 
 #### Instances
 
-- `Navigating` — instance of `Navigating` — [Application types](../design/types.md), line 42.
-  - `Person` is `Authenticating.Account` — [Application types](../design/types.md), line 43.
-  - `Position` is `Position` — [Application types](../design/types.md), line 45.
-  - `Space` is `Hosting.Fair` — [Application types](../design/types.md), line 44.
+- `Navigating` — instance of `Navigating` — [Application types](../design/types.md), line 48.
+  - `GuestToken` is `GuestToken` — [Application types](../design/types.md), line 52.
+  - `Person` is `Participant` — [Application types](../design/types.md), line 49.
+  - `Position` is `Position` — [Application types](../design/types.md), line 51.
+  - `Space` is `Hosting.Fair` — [Application types](../design/types.md), line 50.
 
 ### Reserving
 
@@ -177,9 +189,9 @@ Defined in [Reserving](../design/concepts/Reserving.md), line 1.
 
 #### Instances
 
-- `Reserving` — instance of `Reserving` — [Application types](../design/types.md), line 24.
-  - `Resource` is `Table` — [Application types](../design/types.md), line 26.
-  - `User` is `Name` — [Application types](../design/types.md), line 25.
+- `Reserving` — instance of `Reserving` — [Application types](../design/types.md), line 30.
+  - `Resource` is `Table` — [Application types](../design/types.md), line 32.
+  - `User` is `Name` — [Application types](../design/types.md), line 31.
 
 ### Sessioning
 
@@ -200,15 +212,17 @@ Defined in [Sessioning](../design/concepts/Sessioning.md), line 1.
 
 #### Instances
 
-- `Sessioning` — instance of `Sessioning` — [Application types](../design/types.md), line 30.
-  - `Subject` is `Authenticating.Account` — [Application types](../design/types.md), line 31.
+- `Sessioning` — instance of `Sessioning` — [Application types](../design/types.md), line 36.
+  - `Subject` is `Authenticating.Account` — [Application types](../design/types.md), line 37.
 
 ## Application types
 
 Concrete types:
 
 - `Footprint` — [Application types](../design/types.md), line 18.
+- `GuestToken` — [Application types](../design/types.md), line 25.
 - `Name` — [Application types](../design/types.md), line 8.
+- `Participant` — [Application types](../design/types.md), line 22.
 - `Position` — [Application types](../design/types.md), line 14.
 - `Table` — [Application types](../design/types.md), line 11.
 
@@ -220,7 +234,7 @@ _the authored explanation; this section records the generated shape._
 ### the fair page for (fair)
 
 Authored path: `Roam.FairPage`.
-- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 25.
+- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 32.
 - Covered by [Roam Hosting](../design/compositions/RoamHosting.md), line 6.
 - Covered by [Student discovery](../design/compositions/StudentDiscovery.md), line 3.
 - Covered by [Student discovery](../design/compositions/StudentDiscovery.md), line 21.
@@ -253,7 +267,7 @@ Former "the fair page for (fair)" — inputs (fair); bindings (name, organizer, 
 ### the people in (fair)
 
 Authored path: `Roam.FairPresence`.
-- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 12.
+- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 15.
 
 ```former
 Former "the people in (fair)" — inputs (fair); bindings (person, position); promises exactly one record — forms:
@@ -439,8 +453,8 @@ then
 ### Roam.CloseCall
 
 Authored path: `Roam.CloseCall`.
-- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 26.
-- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 66.
+- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 33.
+- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 77.
 
 ```reaction
 when RequestBoundary.request (call, path: "/calls/close", requestId, session)
@@ -451,8 +465,8 @@ then
 ### Roam.CloseCall#2
 
 Authored path: `Roam.CloseCall`.
-- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 26.
-- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 66.
+- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 33.
+- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 77.
 
 ```reaction
 when Sessioning.current (session, subject: person), asked by Roam.CloseCall
@@ -465,8 +479,8 @@ then
 ### Roam.CloseCall#3
 
 Authored path: `Roam.CloseCall`.
-- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 26.
-- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 66.
+- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 33.
+- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 77.
 
 ```reaction
 when Calling.close (call, host: person), asked by Roam.CloseCall#2
@@ -573,7 +587,7 @@ then
 ### Roam.DepartedHostClosesCall
 
 Authored path: `Roam.DepartedHostClosesCall`.
-- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 71.
+- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 82.
 
 ```reaction
 when Navigating.leave (person)
@@ -627,7 +641,7 @@ then
 
 Authored path: `Roam.EnterFair`.
 - Covered by [Roam calling](../design/compositions/RoamCalling.md), line 3.
-- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 15.
+- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 18.
 
 ```reaction
 when RequestBoundary.request (fair, path: "/fairs/enter", requestId, session)
@@ -641,7 +655,7 @@ then
 
 Authored path: `Roam.EnterFair`.
 - Covered by [Roam calling](../design/compositions/RoamCalling.md), line 3.
-- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 15.
+- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 18.
 
 ```reaction
 when Sessioning.current (session, subject: person), asked by Roam.EnterFair
@@ -655,7 +669,7 @@ then
 
 Authored path: `Roam.EnterFair`.
 - Covered by [Roam calling](../design/compositions/RoamCalling.md), line 3.
-- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 15.
+- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 18.
 
 ```reaction
 when Navigating.enter (person, position: (x: 0, y: 0), space: fair), asked by Roam.EnterFair#2
@@ -696,8 +710,8 @@ then
 ### Roam.GetBoothMeetingLink
 
 Authored path: `Roam.GetBoothMeetingLink`.
-- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 31.
-- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 50.
+- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 40.
+- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 59.
 
 ```reaction
 when RequestBoundary.request (booth, path: "/booths/meeting-link", requestId, session)
@@ -708,8 +722,8 @@ then
 ### Roam.GetBoothMeetingLink#2
 
 Authored path: `Roam.GetBoothMeetingLink`.
-- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 31.
-- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 50.
+- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 40.
+- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 59.
 
 ```reaction
 when Sessioning.current (session, subject: person), asked by Roam.GetBoothMeetingLink
@@ -722,8 +736,8 @@ then
 ### Roam.GetBoothMeetingLink#3
 
 Authored path: `Roam.GetBoothMeetingLink`.
-- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 31.
-- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 50.
+- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 40.
+- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 59.
 
 ```reaction
 when Exhibiting.meetingLink (booth, person, joinUrl), asked by Roam.GetBoothMeetingLink#2
@@ -750,8 +764,8 @@ then
 ### Roam.GetPresence
 
 Authored path: `Roam.GetPresence`.
-- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 11.
-- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 18.
+- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 14.
+- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 25.
 
 ```reaction
 when RequestBoundary.request (fair, path: "/fairs/presence", requestId)
@@ -759,60 +773,139 @@ then
   RequestBoundary.respond (presence: former "the people in (fair)" with (fair), requestId)
 ```
 
+### Roam.GuestEnterFair
+
+Authored path: `Roam.GuestEnterFair`.
+- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 7.
+- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 21.
+
+```reaction
+when RequestBoundary.request (fair, path: "/fairs/guest-enter", requestId, token)
+where
+  Hosting._exists (fair) has (exists: true)
+then
+  Navigating.enterGuest (space: fair, token)
+```
+
+### Roam.GuestEnterFair#2
+
+Authored path: `Roam.GuestEnterFair`.
+- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 7.
+- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 21.
+
+```reaction
+when Navigating.enterGuest (space: fair, token, person, position), asked by Roam.GuestEnterFair
+where
+  earlier, RequestBoundary.request (fair, path: "/fairs/guest-enter", requestId, token)
+then
+  RequestBoundary.respond (person, position, requestId)
+```
+
+### Roam.GuestEnterUnknownFair
+
+Authored path: `Roam.GuestEnterUnknownFair`.
+- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 11.
+- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 24.
+
+```reaction
+when RequestBoundary.request (fair, path: "/fairs/guest-enter", requestId, token)
+where
+  Hosting._exists (fair) has (exists: false)
+then
+  RequestBoundary.respond (error: "NOT_FOUND", requestId)
+```
+
 ### Roam.GuestJoinCall
 
 Authored path: `Roam.GuestJoinCall`.
-- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 24.
-- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 57.
+- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 31.
+- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 66.
 
 ```reaction
-when RequestBoundary.request (booth, code, path: "/calls/guest-join", requestId)
+when RequestBoundary.request (booth, code, path: "/calls/guest-join", requestId, token)
 where
   Hosting._byCode (code) has (fair: space)
   Exhibiting._inSpace (booth, space) has (inSpace: true)
+  Navigating._guestLocation (token) has (person, position, space)
+  Exhibiting._contains (booth, position) has (contains: true)
   Calling._openAt (place: booth) has (call)
 then
-  Calling.join (call, person: "guest")
+  Calling.join (call, person)
 ```
 
 ### Roam.GuestJoinCall#2
 
 Authored path: `Roam.GuestJoinCall`.
-- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 24.
-- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 57.
+- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 31.
+- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 66.
 
 ```reaction
-when Calling.join (call, person: "guest", joinUrl), asked by Roam.GuestJoinCall
+when Calling.join (call, person, joinUrl), asked by Roam.GuestJoinCall
 where
-  earlier, RequestBoundary.request (booth, code, path: "/calls/guest-join", requestId)
+  earlier, RequestBoundary.request (booth, code, path: "/calls/guest-join", requestId, token)
 then
   RequestBoundary.respond (joinUrl, requestId)
+```
+
+### Roam.GuestJoinCallAbsent
+
+Authored path: `Roam.GuestJoinCallAbsent`.
+- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 38.
+- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 71.
+
+```reaction
+when RequestBoundary.request (booth, code, path: "/calls/guest-join", requestId, token)
+where
+  Hosting._byCode (code) has (fair: space)
+  Exhibiting._inSpace (booth, space) has (inSpace: true)
+  Navigating._guestInSpace (space, token) has (present: false)
+then
+  RequestBoundary.respond (error: "NOT_ALLOWED", requestId)
 ```
 
 ### Roam.GuestJoinCallClosed
 
 Authored path: `Roam.GuestJoinCallClosed`.
-- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 29.
-- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 60.
+- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 36.
+- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 69.
 
 ```reaction
-when RequestBoundary.request (booth, code, path: "/calls/guest-join", requestId)
+when RequestBoundary.request (booth, code, path: "/calls/guest-join", requestId, token)
 where
   Hosting._byCode (code) has (fair: space)
   Exhibiting._inSpace (booth, space) has (inSpace: true)
+  Navigating._guestLocation (token) has (position, space)
+  Exhibiting._contains (booth, position) has (contains: true)
   Calling._isOpen (place: booth) has (open: false)
 then
   RequestBoundary.respond (error: "NOT_FOUND", requestId)
 ```
 
+### Roam.GuestJoinCallOutside
+
+Authored path: `Roam.GuestJoinCallOutside`.
+- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 37.
+- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 70.
+
+```reaction
+when RequestBoundary.request (booth, code, path: "/calls/guest-join", requestId, token)
+where
+  Hosting._byCode (code) has (fair: space)
+  Exhibiting._inSpace (booth, space) has (inSpace: true)
+  Navigating._guestLocation (token) has (position, space)
+  Exhibiting._contains (booth, position) has (contains: false)
+then
+  RequestBoundary.respond (error: "NOT_ALLOWED", requestId)
+```
+
 ### Roam.GuestJoinCallUnknownFair
 
 Authored path: `Roam.GuestJoinCallUnknownFair`.
-- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 27.
-- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 58.
+- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 34.
+- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 67.
 
 ```reaction
-when RequestBoundary.request (booth, code, path: "/calls/guest-join", requestId)
+when RequestBoundary.request (booth, code, path: "/calls/guest-join", requestId, token)
 where
   Hosting._codeExists (code) has (exists: false)
 then
@@ -822,11 +915,11 @@ then
 ### Roam.GuestJoinCallWrongBooth
 
 Authored path: `Roam.GuestJoinCallWrongBooth`.
-- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 28.
-- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 59.
+- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 35.
+- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 68.
 
 ```reaction
-when RequestBoundary.request (booth, code, path: "/calls/guest-join", requestId)
+when RequestBoundary.request (booth, code, path: "/calls/guest-join", requestId, token)
 where
   Hosting._byCode (code) has (fair: space)
   Exhibiting._inSpace (booth, space) has (inSpace: false)
@@ -834,10 +927,62 @@ then
   RequestBoundary.respond (error: "NOT_FOUND", requestId)
 ```
 
+### Roam.GuestLeaveFair
+
+Authored path: `Roam.GuestLeaveFair`.
+- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 10.
+- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 23.
+
+```reaction
+when RequestBoundary.request (path: "/fairs/guest-leave", requestId, token)
+then
+  Navigating.leaveGuest (token)
+```
+
+### Roam.GuestLeaveFair#2
+
+Authored path: `Roam.GuestLeaveFair`.
+- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 10.
+- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 23.
+
+```reaction
+when Navigating.leaveGuest (token), asked by Roam.GuestLeaveFair
+where
+  earlier, RequestBoundary.request (path: "/fairs/guest-leave", requestId, token)
+then
+  RequestBoundary.respond (left: true, requestId)
+```
+
+### Roam.GuestMove
+
+Authored path: `Roam.GuestMove`.
+- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 8.
+- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 22.
+
+```reaction
+when RequestBoundary.request (destination, path: "/fairs/guest-move", requestId, token)
+then
+  Navigating.moveGuest (destination, token)
+```
+
+### Roam.GuestMove#2
+
+Authored path: `Roam.GuestMove`.
+- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 8.
+- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 22.
+
+```reaction
+when Navigating.moveGuest (destination, token, person, position), asked by Roam.GuestMove
+where
+  earlier, RequestBoundary.request (destination, path: "/fairs/guest-move", requestId, token)
+then
+  RequestBoundary.respond (person, position, requestId)
+```
+
 ### Roam.HostExitsBoothClosesCall
 
 Authored path: `Roam.HostExitsBoothClosesCall`.
-- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 70.
+- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 81.
 
 ```reaction
 when Navigating.move (person)
@@ -853,8 +998,8 @@ then
 ### Roam.JoinCall
 
 Authored path: `Roam.JoinCall`.
-- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 23.
-- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 56.
+- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 30.
+- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 65.
 
 ```reaction
 when RequestBoundary.request (booth, path: "/calls/join", requestId, session)
@@ -871,8 +1016,8 @@ then
 ### Roam.JoinCall#2
 
 Authored path: `Roam.JoinCall`.
-- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 23.
-- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 56.
+- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 30.
+- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 65.
 
 ```reaction
 when Calling.join (call, person, joinUrl), asked by Roam.JoinCall
@@ -885,8 +1030,8 @@ then
 ### Roam.JoinCallAbsent
 
 Authored path: `Roam.JoinCallAbsent`.
-- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 41.
-- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 62.
+- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 50.
+- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 73.
 
 ```reaction
 when RequestBoundary.request (booth, path: "/calls/join", requestId, session)
@@ -901,8 +1046,8 @@ then
 ### Roam.JoinCallClosed
 
 Authored path: `Roam.JoinCallClosed`.
-- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 42.
-- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 63.
+- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 51.
+- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 74.
 
 ```reaction
 when RequestBoundary.request (booth, path: "/calls/join", requestId, session)
@@ -919,8 +1064,8 @@ then
 ### Roam.JoinCallNoSession
 
 Authored path: `Roam.JoinCallNoSession`.
-- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 46.
-- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 65.
+- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 55.
+- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 76.
 
 ```reaction
 when RequestBoundary.request (booth, path: "/calls/join", requestId, session)
@@ -933,8 +1078,8 @@ then
 ### Roam.JoinCallOutside
 
 Authored path: `Roam.JoinCallOutside`.
-- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 40.
-- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 61.
+- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 49.
+- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 72.
 
 ```reaction
 when RequestBoundary.request (booth, path: "/calls/join", requestId, session)
@@ -950,8 +1095,8 @@ then
 ### Roam.JoinCallUnknownBooth
 
 Authored path: `Roam.JoinCallUnknownBooth`.
-- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 44.
-- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 64.
+- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 53.
+- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 75.
 
 ```reaction
 when RequestBoundary.request (booth, path: "/calls/join", requestId, session)
@@ -965,7 +1110,7 @@ then
 
 Authored path: `Roam.LeaveFair`.
 - Covered by [Roam calling](../design/compositions/RoamCalling.md), line 5.
-- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 17.
+- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 20.
 
 ```reaction
 when RequestBoundary.request (path: "/fairs/leave", requestId, session)
@@ -977,7 +1122,7 @@ then
 
 Authored path: `Roam.LeaveFair`.
 - Covered by [Roam calling](../design/compositions/RoamCalling.md), line 5.
-- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 17.
+- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 20.
 
 ```reaction
 when Sessioning.current (session, subject: person), asked by Roam.LeaveFair
@@ -989,7 +1134,7 @@ then
 
 Authored path: `Roam.LeaveFair`.
 - Covered by [Roam calling](../design/compositions/RoamCalling.md), line 5.
-- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 17.
+- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 20.
 
 ```reaction
 when Navigating.leave (person), asked by Roam.LeaveFair#2
@@ -1015,7 +1160,7 @@ then
 
 Authored path: `Roam.Move`.
 - Covered by [Roam calling](../design/compositions/RoamCalling.md), line 4.
-- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 16.
+- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 19.
 
 ```reaction
 when RequestBoundary.request (destination, path: "/fairs/move", requestId, session)
@@ -1027,7 +1172,7 @@ then
 
 Authored path: `Roam.Move`.
 - Covered by [Roam calling](../design/compositions/RoamCalling.md), line 4.
-- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 16.
+- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 19.
 
 ```reaction
 when Sessioning.current (session, subject: person), asked by Roam.Move
@@ -1041,7 +1186,7 @@ then
 
 Authored path: `Roam.Move`.
 - Covered by [Roam calling](../design/compositions/RoamCalling.md), line 4.
-- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 16.
+- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 19.
 
 ```reaction
 when Navigating.move (destination, person), asked by Roam.Move#2
@@ -1054,8 +1199,8 @@ then
 ### Roam.OpenCall
 
 Authored path: `Roam.OpenCall`.
-- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 21.
-- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 49.
+- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 28.
+- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 58.
 
 ```reaction
 when RequestBoundary.request (booth, joinUrl, path: "/calls/open", requestId, session)
@@ -1072,8 +1217,8 @@ then
 ### Roam.OpenCall#2
 
 Authored path: `Roam.OpenCall`.
-- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 21.
-- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 49.
+- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 28.
+- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 58.
 
 ```reaction
 when Calling.open (host: person, joinUrl, place: booth, call), asked by Roam.OpenCall
@@ -1086,8 +1231,8 @@ then
 ### Roam.OpenCallAbsent
 
 Authored path: `Roam.OpenCallAbsent`.
-- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 39.
-- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 53.
+- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 48.
+- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 62.
 
 ```reaction
 when RequestBoundary.request (booth, joinUrl, path: "/calls/open", requestId, session)
@@ -1103,8 +1248,8 @@ then
 ### Roam.OpenCallNoSession
 
 Authored path: `Roam.OpenCallNoSession`.
-- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 45.
-- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 55.
+- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 54.
+- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 64.
 
 ```reaction
 when RequestBoundary.request (booth, joinUrl, path: "/calls/open", requestId, session)
@@ -1117,8 +1262,8 @@ then
 ### Roam.OpenCallNotRepresentative
 
 Authored path: `Roam.OpenCallNotRepresentative`.
-- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 37.
-- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 51.
+- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 46.
+- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 60.
 
 ```reaction
 when RequestBoundary.request (booth, joinUrl, path: "/calls/open", requestId, session)
@@ -1133,8 +1278,8 @@ then
 ### Roam.OpenCallOutside
 
 Authored path: `Roam.OpenCallOutside`.
-- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 38.
-- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 52.
+- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 47.
+- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 61.
 
 ```reaction
 when RequestBoundary.request (booth, joinUrl, path: "/calls/open", requestId, session)
@@ -1151,8 +1296,8 @@ then
 ### Roam.OpenCallUnknownBooth
 
 Authored path: `Roam.OpenCallUnknownBooth`.
-- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 43.
-- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 54.
+- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 52.
+- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 63.
 
 ```reaction
 when RequestBoundary.request (booth, joinUrl, path: "/calls/open", requestId, session)
@@ -1219,7 +1364,7 @@ then
 ### Roam.RemovedRepresentativeClosesCall
 
 Authored path: `Roam.RemovedRepresentativeClosesCall`.
-- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 69.
+- Covered by [Roam calling](../design/compositions/RoamCalling.md), line 80.
 
 ```reaction
 when Exhibiting.removeRepresentative (booth, representative)
@@ -1455,12 +1600,15 @@ not listed here have no explicit input contract.
 - `/booths/representatives/add` — requires `session`, `booth`, `representative`
 - `/booths/representatives/remove` — requires `session`, `booth`, `representative`
 - `/calls/close` — requires `session`, `call`
-- `/calls/guest-join` — requires `code`, `booth`
+- `/calls/guest-join` — requires `code`, `booth`, `token`
 - `/calls/join` — requires `session`, `booth`
 - `/calls/open` — requires `session`, `booth`, `joinUrl`
 - `/fairs/by-code` — requires `code`
 - `/fairs/create` — requires `session`, `name`
 - `/fairs/enter` — requires `session`, `fair`
+- `/fairs/guest-enter` — requires `fair`, `token`
+- `/fairs/guest-leave` — requires `token`
+- `/fairs/guest-move` — requires `token`, `destination`
 - `/fairs/leave` — requires `session`
 - `/fairs/listing` — requires `session`, `fair`, `listed`
 - `/fairs/move` — requires `session`, `destination`
