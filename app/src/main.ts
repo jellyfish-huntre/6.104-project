@@ -3,6 +3,11 @@ import { createHttpHandler } from "@mit-sdg/sync-engine-http/handler";
 import { assembleApplication } from "./assembly.ts";
 import { policy } from "./http.ts";
 import { db } from "./db.ts";
+import { migrateLegacyFairCodes } from "./concepts/Hosting.ts";
+import { migrateLegacyBoothRepresentatives } from "./concepts/Exhibiting.ts";
+
+await migrateLegacyFairCodes(db);
+await migrateLegacyBoothRepresentatives(db);
 
 const application = assembleApplication();
 const gateway = createGateway({ application });

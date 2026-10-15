@@ -11,7 +11,10 @@ export default {
     documents: [
       new URL("./design/types.md", import.meta.url),
       new URL("./design/compositions/Reservations.md", import.meta.url),
+      new URL("./design/compositions/Sessions.md", import.meta.url),
       new URL("./design/compositions/RoamHosting.md", import.meta.url),
+      new URL("./design/compositions/StudentDiscovery.md", import.meta.url),
+      new URL("./design/compositions/RoamCalling.md", import.meta.url),
     ],
   },
   projections: [httpWire({ policy, name: "RoamWireHttp" })],

@@ -7,7 +7,7 @@ Roam.CreateFair at /fairs/create
 Roam.GetFairPage at /fairs/page
 ```
 
-The fair uses a 10 by 10 integer grid. Its entrance is at {x: 0, y: 0}. A booth occupies a rectangle {x, y, width, height} of cells. The fair owner [may manage booths](view:Roam.OrganizerOwnsFair). A [valid booth area](view:Roam.AvailableBoothArea) has positive integer dimensions, lies entirely inside the grid, excludes the entrance, and does not overlap another booth. People may stand within a booth's area, including when another booth is created. These checks gate [creating a booth](reaction:Roam.CreateBooth); ownership also gates [editing its details](reaction:Roam.EditBooth), [adding a representative](reaction:Roam.AddRepresentative), and [removing a representative](reaction:Roam.RemoveRepresentative). The booth actions also require the actor to be the booth's recorded organizer. When a representative is removed, [their open call at that booth closes](reaction:Roam.RemovedRepresentativeClosesCall).
+The fair uses a 10 by 10 integer grid. Its entrance is at {x: 0, y: 0}. A booth occupies a rectangle {x, y, width, height} of cells. The fair owner [may manage booths](view:Roam.OrganizerOwnsFair). A [valid booth area](view:Roam.AvailableBoothArea) has positive integer dimensions, lies entirely inside the grid, excludes the entrance, and does not overlap another booth. People may stand within a booth's area, including when another booth is created. These checks gate [creating a booth](reaction:Roam.CreateBooth), which assigns the fair creator as its first representative; ownership also gates [editing its details](reaction:Roam.EditBooth), [adding a representative](reaction:Roam.AddRepresentative), and [removing a representative](reaction:Roam.RemoveRepresentative). The booth actions also require the actor to be the booth's recorded organizer. When a representative is removed, [their open call at that booth closes](reaction:Roam.RemovedRepresentativeClosesCall).
 
 ```endpoints
 Roam.CreateBooth at /booths/create
@@ -24,11 +24,15 @@ Roam.Move at /fairs/move
 Roam.LeaveFair at /fairs/leave
 ```
 
-An assigned representative inside the booth [may open a call](view:Roam.RepresentativeMayOpenCall). [Opening a call](reaction:Roam.OpenCall) publishes its availability at the booth. A visitor inside that booth [joins an open call](reaction:Roam.JoinCall) to receive its external link. Only its host [closes the call](reaction:Roam.CloseCall). The application cannot observe whether a person actually enters or leaves the external video meeting.
+An assigned representative inside the booth [may open a call](view:Roam.RepresentativeMayOpenCall). [Opening a call](reaction:Roam.OpenCall) publishes its availability at the booth. A signed-in visitor inside that booth [joins an open call](reaction:Roam.JoinCall) to receive its external link. An unsigned guest with the fair code [gets the open call link](reaction:Roam.GuestJoinCall) without an account; the guest browser offers it while their avatar is inside the booth. Only its host [closes the call](reaction:Roam.CloseCall). The application cannot observe whether a person actually enters or leaves the external video meeting.
 
 ```endpoints
 Roam.OpenCall at /calls/open
 Roam.JoinCall at /calls/join
+Roam.GuestJoinCall at /calls/guest-join
+Roam.GuestJoinCallUnknownFair at /calls/guest-join
+Roam.GuestJoinCallWrongBooth at /calls/guest-join
+Roam.GuestJoinCallClosed at /calls/guest-join
 Roam.CloseCall at /calls/close
 ```
 

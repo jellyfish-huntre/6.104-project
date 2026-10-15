@@ -16,7 +16,7 @@
   "scripts": {
     "generate": "sync-engine artifacts pin",
     "check": "sync-engine check && sync-engine artifacts check && tsc --noEmit",
-    "check:design": "sync-engine check-design design/concepts/*.md design/types.md design/compositions/Reservations.md design/compositions/RoamHosting.md && sync-engine check-design design/concepts/*.md design/roam-draft-types.md design/compositions/Roam.md",
+    "check:design": "sync-engine check-design design/concepts/*.md design/types.md design/compositions/Reservations.md design/compositions/Sessions.md design/compositions/RoamHosting.md design/compositions/StudentDiscovery.md design/compositions/RoamCalling.md && sync-engine check-design design/concepts/*.md design/roam-draft-types.md design/compositions/Roam.md",
     "start": "bun run --parallel start:backend start:frontend",
     "start:backend": "HOST=127.0.0.1 PORT=4000 bun src/main.ts",
     "start:frontend": "HOST=0.0.0.0 BACKEND_URL=http://127.0.0.1:4000 bun web/server.ts",

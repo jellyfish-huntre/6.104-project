@@ -3,30 +3,201 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Roam · Host a fair</title>
+    <title>Roam · Explore fairs</title>
     <link rel="stylesheet" href="./styles.css" />
     <script type="module" src="./app.ts"></script>
   </head>
   <body>
     <main id="app">
       <h1>Roam</h1>
-      <p>Create a fair for people to explore.</p>
-      <form @submit.prevent="createFair">
-        <label>
-          Organizer name
-          <input v-model="organizer" name="organizer" autocomplete="name" required />
-        </label>
-        <label>
-          Fair name
-          <input v-model="name" name="name" placeholder="Fall Club Fair" required />
-        </label>
-        <button :disabled="busy">{{ busy ? "Working…" : "Create fair" }}</button>
-      </form>
+      <p>Explore fairs and booths, or create your own fair.</p>
+
+      <section aria-label="Enter a fair">
+        <h2>Enter a fair</h2>
+        <form @submit.prevent="openFairByCode">
+          <label>Fair code
+            <input v-model="fairCode" maxlength="8" autocomplete="off" autocapitalize="characters"
+              placeholder="8-character code" required />
+          </label>
+          <button :disabled="busy">Open fair</button>
+        </form>
+        <div class="public-fairs">
+          <div class="section-heading">
+            <h3>Public fairs</h3>
+            <button class="text-button" type="button" @click="loadPublicFairs">Refresh</button>
+          </div>
+          <label v-if="publicFairs.length">Search public fairs
+            <input v-model="publicQuery" type="search" placeholder="Fair name or organizer" />
+          </label>
+          <p v-if="publicFairs.length === 0" class="hint">No public fairs yet. You can still enter a fair using its code.</p>
+          <p v-else-if="visiblePublicFairs.length === 0" class="hint">No public fairs match that search.</p>
+          <div v-else class="public-fair-list">
+            <article v-for="listedFair in visiblePublicFairs" :key="listedFair.fair" class="public-fair">
+              <div>
+                <h4>{{ listedFair.name }}</h4>
+                <p class="hint">Organized by {{ listedFair.organizer }}</p>
+              </div>
+              <button type="button" @click="openFair(listedFair.fair)">Open fair</button>
+            </article>
+          </div>
+        </div>
+      </section>
+
       <p role="status" aria-live="polite">{{ status }}</p>
-      <section v-if="fair" aria-label="Fair details">
+
+      <section v-if="!account" aria-label="Account">
+        <h2>{{ mode === 'register' ? 'Create an account' : 'Sign in' }}</h2>
+        <form @submit.prevent="submitAuth">
+          <label>Username
+            <input v-model="username" autocomplete="username" required minlength="3" maxlength="32" />
+          </label>
+          <p v-if="mode === 'register'" class="hint">Use 3–32 letters, numbers, underscores, or hyphens. No spaces or email addresses.</p>
+          <label>Password
+            <input v-model="password" type="password" :autocomplete="mode === 'register' ? 'new-password' : 'current-password'" required minlength="8" maxlength="128" />
+          </label>
+          <p v-if="mode === 'register'" class="hint">Use 8–128 characters.</p>
+          <button :disabled="busy">{{ mode === 'register' ? 'Register' : 'Sign in' }}</button>
+        </form>
+        <button class="text-button" @click="mode = mode === 'register' ? 'sign-in' : 'register'">
+          {{ mode === 'register' ? 'Already have an account? Sign in' : 'Need an account? Register' }}
+        </button>
+      </section>
+
+      <section v-else aria-label="Current account">
+        <p>Signed in as <strong>{{ account }}</strong></p>
+        <button @click="signOut" :disabled="busy">Sign out</button>
+        <h2>Create a fair</h2>
+        <form @submit.prevent="createFair">
+          <label>Fair name
+            <input v-model="fairName" placeholder="Fall Club Fair" required maxlength="100" />
+          </label>
+          <label class="checkbox-label"><input v-model="listNewFair" type="checkbox" /> List this fair publicly</label>
+          <p class="hint">Unlisted fairs can still be opened with their code or direct link.</p>
+          <button :disabled="busy">Create fair</button>
+        </form>
+      </section>
+
+      <section v-if="fair" id="fair-details" aria-label="Fair details">
         <h2>{{ fair.name }}</h2>
         <p>Organized by {{ fair.organizer }}</p>
-        <p>Fair ID: <code>{{ fair.fair }}</code></p>
+        <p>Fair code: <strong class="fair-code">{{ fair.code }}</strong></p>
+        <p v-if="canManage" class="hint">Share this code with students so they can open the fair.</p>
+        <p>Visibility: <strong>{{ fair.listed ? 'Publicly listed' : 'Unlisted' }}</strong></p>
+        <button v-if="canManage" type="button" :disabled="busy" @click="setFairListing(!fair.listed)">
+          {{ fair.listed ? 'Remove from public fairs' : 'List in public fairs' }}
+        </button>
+
+        <h3>Explore the fair</h3>
+        <p class="hint">Move the blue triangle with the arrow keys or WASD. Select a colored booth cell to read about it. Anyone in a booth can get its live call link. Sign in if you want your position shared with others in this fair.</p>
+        <p class="hint" aria-live="polite">Your avatar is at ({{ avatar.x }}, {{ avatar.y }}).</p>
+        <p v-if="account" class="hint">{{ joinedFair ? 'You are in the fair.' : 'Entering the fair…' }} {{ people.length }} signed-in {{ people.length === 1 ? 'person' : 'people' }} here.</p>
+        <div class="discovery-layout" :class="{ 'has-details': selectedBooth }">
+          <div class="fair-map" aria-label="Fair booth map">
+            <template v-for="cell in mapCells" :key="`${cell.x},${cell.y}`">
+              <button v-if="cell.booth" class="map-cell booth-cell"
+                :class="{ selected: selectedBoothId === cell.booth.booth }"
+                :style="{ '--booth-hue': cell.hue }"
+                :aria-label="`${cell.booth.name} at (${cell.x}, ${cell.y})${cell.hasAvatar ? ', your avatar is here' : ''}`"
+                @click="selectedBoothId = cell.booth.booth">
+                <span v-if="cell.showName">{{ cell.booth.name }}</span>
+                <span v-if="cell.hasAvatar" class="avatar" aria-hidden="true"></span>
+                <span v-if="cell.others" class="other-avatars" :aria-label="`${cell.others} other people here`">{{ cell.others }}</span>
+              </button>
+              <div v-else class="map-cell empty-cell" :class="{ entrance: cell.x === 0 && cell.y === 0 }"
+                :aria-label="cell.hasAvatar ? `Your avatar at (${cell.x}, ${cell.y})` : cell.x === 0 && cell.y === 0 ? 'Entrance at (0, 0)' : `Empty cell at (${cell.x}, ${cell.y})`">
+                {{ cell.x === 0 && cell.y === 0 ? 'Start' : '' }}
+                <span v-if="cell.hasAvatar" class="avatar" aria-hidden="true"></span>
+                <span v-if="cell.others" class="other-avatars" :aria-label="`${cell.others} other people here`">{{ cell.others }}</span>
+              </div>
+            </template>
+          </div>
+          <article v-if="selectedBooth" aria-label="Selected booth">
+            <h3>{{ selectedBooth.name }}</h3>
+            <p>{{ selectedBooth.description }}</p>
+            <p>Representatives:
+              <span v-if="selectedBooth.representatives.length === 0">none assigned</span>
+              <span v-else>{{ selectedBooth.representatives.map((rep) => rep.representative).join(', ') }}</span>
+            </p>
+            <p v-if="selectedBooth.calls.length">Live call hosted by {{ selectedBooth.calls[0].host }}</p>
+            <p v-else class="hint">No live call at this booth.</p>
+            <form v-if="representsSelectedBooth && insideSelectedBooth && !selectedBooth.calls.length"
+              @submit.prevent="openCall(selectedBooth.booth)">
+              <p v-if="selectedBooth.meetingLinkSaved" class="hint">Opening this call will use the booth's saved meeting link.</p>
+              <label v-else>Video meeting link
+                <input v-model="callUrl" type="url" placeholder="https://meet.google.com/…" required maxlength="2000" />
+              </label>
+              <p v-if="!selectedBooth.meetingLinkSaved" class="hint">Paste a meeting link from your video provider, not this fair's URL.</p>
+              <button :disabled="busy">Open call here</button>
+            </form>
+            <button v-if="selectedBooth.calls.length && selectedBooth.calls[0].host === account"
+              @click="closeCall(selectedBooth.calls[0].call)" :disabled="busy">Close call</button>
+            <button v-if="selectedBooth.calls.length && insideSelectedBooth"
+              @click="joinCall(selectedBooth.booth)" :disabled="busy">Get call link</button>
+            <p v-if="selectedBooth.calls.length && !insideSelectedBooth" class="hint">Move into this booth to get its call link.</p>
+            <p v-if="representsSelectedBooth && !insideSelectedBooth" class="hint">Move into this booth to open its call.</p>
+            <p v-if="joinLink && selectedBooth.calls[0]?.call === joinedCall"><a :href="joinLink" target="_blank" rel="noopener noreferrer">Open video call</a></p>
+          </article>
+        </div>
+
+        <section v-if="canManage" aria-label="Add booth">
+          <h3>Add a booth</h3>
+          <form @submit.prevent="createBooth">
+            <label>Booth name <input v-model="boothName" required maxlength="100" /></label>
+            <label>Description <textarea v-model="boothDescription" maxlength="1000"></textarea></label>
+            <label>Meeting link (optional) <input v-model="boothMeetingUrl" type="url" placeholder="https://…" maxlength="2000" /></label>
+            <p class="hint">Save a video meeting link now so a representative can open a call from this booth later.</p>
+            <div class="grid-fields">
+              <label>X <input v-model.number="area.x" type="number" min="0" max="9" required /></label>
+              <label>Y <input v-model.number="area.y" type="number" min="0" max="9" required /></label>
+              <label>Width <input v-model.number="area.width" type="number" min="1" max="10" required /></label>
+              <label>Height <input v-model.number="area.height" type="number" min="1" max="10" required /></label>
+            </div>
+            <p class="hint">The fair is a 10 × 10 grid. Booths cannot overlap or cover (0, 0).</p>
+            <button :disabled="busy">Add booth</button>
+          </form>
+        </section>
+
+        <h3>Booths</h3>
+        <label>Search booth names, descriptions, or representatives
+          <input v-model="boothQuery" type="search" placeholder="Search booths" />
+        </label>
+        <p v-if="fair.booths.length === 0">No booths yet.</p>
+        <p v-else-if="visibleBooths.length === 0">No booths match that search.</p>
+        <article v-for="booth in visibleBooths" :key="booth.booth">
+          <h4>{{ booth.name }}</h4>
+          <p>{{ booth.description }}</p>
+          <p class="hint">At ({{ booth.footprint.x }}, {{ booth.footprint.y }}), {{ booth.footprint.width }} × {{ booth.footprint.height }} cells</p>
+          <button class="text-button" @click="selectedBoothId = booth.booth">Highlight on map</button>
+          <p>Representatives:
+            <span v-if="booth.representatives.length === 0">none assigned</span>
+            <span v-for="rep in booth.representatives" :key="rep.representative" class="representative">
+              {{ rep.representative }}
+              <button v-if="canManage" @click="removeRepresentative(booth.booth, rep.representative)" :disabled="busy" :aria-label="'Remove ' + rep.representative">Remove</button>
+            </span>
+          </p>
+          <p v-if="booth.calls.length" class="live-call">Live call with {{ booth.calls[0].host }}</p>
+          <p v-else-if="booth.meetingLinkSaved" class="hint">Meeting link saved; no live call yet.</p>
+          <div v-if="canManage && drafts[booth.booth]" class="booth-controls">
+            <form @submit.prevent="editBooth(booth.booth)">
+              <label>Edit name <input v-model="drafts[booth.booth].name" required maxlength="100" /></label>
+              <label>Edit description <textarea v-model="drafts[booth.booth].description" maxlength="1000"></textarea></label>
+              <button :disabled="busy">Save booth details</button>
+            </form>
+            <form @submit.prevent="addRepresentative(booth.booth)">
+              <label>Representative username <input v-model="drafts[booth.booth].representative" required /></label>
+              <button :disabled="busy">Assign representative</button>
+            </form>
+            <form @submit.prevent="setBoothMeetingLink(booth.booth, drafts[booth.booth].meetingUrl)">
+              <label>{{ booth.meetingLinkSaved ? 'Replace meeting link' : 'Add meeting link' }}
+                <input v-model="drafts[booth.booth].meetingUrl" type="url" placeholder="https://…" required maxlength="2000" />
+              </label>
+              <button :disabled="busy">Save meeting link</button>
+            </form>
+            <button v-if="booth.meetingLinkSaved" type="button" :disabled="busy"
+              @click="setBoothMeetingLink(booth.booth, '')">Remove meeting link</button>
+            <p class="hint">Representatives need their own registered accounts.</p>
+          </div>
+        </article>
       </section>
     </main>
   </body>

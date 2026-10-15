@@ -43,7 +43,10 @@ enter(person: Person, space: Space, position: Position) : returns ()
     returns
 
 move(person: Person, destination: Position) : returns ()
-  where person is present
+  where person is present and destination is outside the space's grid or not one orthogonal step away
+  then
+    refuses INVALID_MOVE "Move one cell within the fair."
+  where person is present and destination is one orthogonal step away within the grid
   then
     changes the person's position to destination
     returns
@@ -69,4 +72,7 @@ _location(person: Person) : optional (person: Person, space: Space, position: Po
 
 _present(space: Space) : many (person: Person, position: Position)
   Gets everyone in a space and their positions, and no rows when the space is empty.
+
+_inSpace(person: Person, space: Space) : one (present: Flag)
+  Answers whether the person is currently in the space.
 ```

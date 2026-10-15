@@ -71,4 +71,7 @@ _openAt(place: Place) : optional (call: Call, place: Place, host: Person)
 
 _hostedBy(host: Person) : optional (call: Call, place: Place)
   Gets the host's open call, and no row when the host has none.
+
+_isOpen(place: Place) : one (open: Flag)
+  Answers whether a call is open at the place.
 ```

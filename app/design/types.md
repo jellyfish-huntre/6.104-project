@@ -1,7 +1,8 @@
 # Application types
 
-The Reservations tutorial uses guest names and tables. The current Roam slice
-records a supplied organizer name with each fair.
+The Reservations tutorial still uses guest names and tables. Roam uses account
+identities for organizers and representatives, with browser sessions proving
+which account is acting.
 
 ```types
 concrete Name
@@ -10,9 +11,13 @@ concrete Name
 concrete Table
   A table at a certain time, such as friday-7pm-table-4.
 
-concrete Person
-  A person using Roam. The current Hosting endpoint records a supplied name;
-  protected actions will require a verified identity.
+concrete Position
+  An integer grid coordinate {x, y} in a fair. Both axes run from 0 through 9;
+  {x: 0, y: 0} is the entrance.
+
+concrete Footprint
+  A rectangle {x, y, width, height} of grid cells. x and y are the top-left
+  coordinate, and width and height are positive integers.
 ```
 
 ```instances
@@ -20,6 +25,26 @@ instantiate Reserving with
   User is Name
   Resource is Table
 
+instantiate Authenticating
+
+instantiate Sessioning with
+  Subject is Authenticating.Account
+
 instantiate Hosting with
-  Person is Person
+  Person is Authenticating.Account
+
+instantiate Exhibiting with
+  Person is Authenticating.Account
+  Space is Hosting.Fair
+  Position is Position
+  Footprint is Footprint
+
+instantiate Navigating with
+  Person is Authenticating.Account
+  Space is Hosting.Fair
+  Position is Position
+
+instantiate Calling with
+  Person is Authenticating.Account
+  Place is Exhibiting.Booth
 ```

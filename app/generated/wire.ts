@@ -6,6 +6,7 @@ import type { applicationConceptSet as ApplicationConceptSet } from "../src/conc
 type AtPath<T, P extends readonly string[]> = P extends readonly [infer H extends string, ...infer R extends string[]] ? H extends keyof T ? AtPath<T[H], R> : H extends `${number}` ? T extends readonly (infer Item)[] ? AtPath<Item, R> : never : never : T;
 type QueryRow<T> = T extends readonly (infer Row)[] ? Row : T;
 type AllOf<T extends readonly unknown[]> = T extends readonly [infer Head, ...infer Rest] ? Head & AllOf<Rest> : unknown;
+type OneOf<T extends readonly unknown[]> = T[number];
 type Jsonify<T> = T extends Date ? string : T extends null | boolean | number | string ? T : T extends (...args: never[]) => unknown ? never : T extends readonly (infer Item)[] ? Jsonify<Item>[] : T extends object ? { [K in keyof T]: Jsonify<T[K]> } : never;
 
 export type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
@@ -13,15 +14,223 @@ export type Json = null | boolean | number | string | Json[] | { [key: string]: 
 export type AppWideError = never;
 
 export type RoamWire = {
+  "/auth/current": {
+    input: {
+      "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["current"]>[0], ["session"]>>;
+    };
+    output: {
+      "account": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Sessioning"]["current"]>>, ["subject"]>>;
+    };
+    error: { error: AppWideError | "INVALID_INPUT" | "UNKNOWN_SESSION" };
+  };
+  "/auth/register": {
+    input: {
+      "password": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Authenticating"]["register"]>[0], ["password"]>>;
+      "username": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Authenticating"]["register"]>[0], ["username"]>>;
+    };
+    output: {
+      "account": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["start"]>[0], ["subject"]>>;
+      "expiresAt": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Sessioning"]["start"]>>, ["expiresAt"]>>;
+      "session": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Sessioning"]["start"]>>, ["session"]>>;
+    };
+    error: { error: AppWideError | "INVALID_INPUT" | "INVALID_USERNAME" | "USERNAME_TAKEN" | "WEAK_PASSWORD" };
+  };
+  "/auth/sign-in": {
+    input: {
+      "password": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Authenticating"]["authenticate"]>[0], ["password"]>>;
+      "username": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Authenticating"]["authenticate"]>[0], ["username"]>>;
+    };
+    output: {
+      "account": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["start"]>[0], ["subject"]>>;
+      "expiresAt": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Sessioning"]["start"]>>, ["expiresAt"]>>;
+      "session": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Sessioning"]["start"]>>, ["session"]>>;
+    };
+    error: { error: AppWideError | "INVALID_CREDENTIALS" | "INVALID_INPUT" };
+  };
+  "/auth/sign-out": {
+    input: {
+      "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["end"]>[0], ["session"]>>;
+    };
+    output: {
+      "ended": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Sessioning"]["end"]>>, ["ended"]>>;
+    };
+    error: { error: AppWideError | "INVALID_INPUT" | "UNKNOWN_SESSION" };
+  };
+  "/booths/create": {
+    input: {
+      "description": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["create"]>[0], ["description"]>>;
+      "fair": Jsonify<OneOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Hosting"]["verifyOwner"]>[0], ["fair"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["create"]>[0], ["space"]>]>>;
+      "footprint": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["create"]>[0], ["footprint"]>>;
+      "meetingUrl": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["create"]>[0], ["meetingUrl"]>>;
+      "name": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["create"]>[0], ["name"]>>;
+      "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["current"]>[0], ["session"]>>;
+    };
+    output: {
+      "booth": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["create"]>>, ["booth"]>>;
+    };
+    error: { error: AppWideError | "AREA_OCCUPIED" | "INVALID_FOOTPRINT" | "INVALID_INPUT" | "INVALID_NAME" | "INVALID_URL" | "NOT_FOUND" | "UNKNOWN_SESSION" };
+  };
+  "/booths/edit": {
+    input: {
+      "booth": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["edit"]>[0], ["booth"]>>;
+      "description": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["edit"]>[0], ["description"]>>;
+      "name": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["edit"]>[0], ["name"]>>;
+      "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["current"]>[0], ["session"]>>;
+    };
+    output: {
+      "booth": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["edit"]>[0], ["booth"]>>;
+    };
+    error: { error: AppWideError | "INVALID_INPUT" | "INVALID_NAME" | "NOT_FOUND" | "UNKNOWN_SESSION" };
+  };
+  "/booths/meeting-link": {
+    input: {
+      "booth": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["meetingLink"]>[0], ["booth"]>>;
+      "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["current"]>[0], ["session"]>>;
+    };
+    output: {
+      "joinUrl": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["meetingLink"]>>, ["joinUrl"]>>;
+    };
+    error: { error: AppWideError | "INVALID_INPUT" | "NOT_FOUND" | "UNKNOWN_SESSION" };
+  };
+  "/booths/meeting-link/set": {
+    input: {
+      "booth": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["setMeetingLink"]>[0], ["booth"]>>;
+      "meetingUrl": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["setMeetingLink"]>[0], ["meetingUrl"]>>;
+      "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["current"]>[0], ["session"]>>;
+    };
+    output: {
+      "booth": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["setMeetingLink"]>[0], ["booth"]>>;
+    };
+    error: { error: AppWideError | "INVALID_INPUT" | "INVALID_URL" | "NOT_FOUND" | "UNKNOWN_SESSION" };
+  };
+  "/booths/representatives/add": {
+    input: {
+      "booth": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["addRepresentative"]>[0], ["booth"]>>;
+      "representative": Jsonify<OneOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Authenticating"]["verifyRegistered"]>[0], ["username"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["addRepresentative"]>[0], ["representative"]>]>>;
+      "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["current"]>[0], ["session"]>>;
+    };
+    output: {
+      "booth": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["addRepresentative"]>[0], ["booth"]>>;
+      "representative": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["addRepresentative"]>[0], ["representative"]>>;
+    };
+    error: { error: AppWideError | "ALREADY_ASSIGNED" | "INVALID_INPUT" | "NOT_FOUND" | "NO_SUCH_ACCOUNT" | "UNKNOWN_SESSION" };
+  };
+  "/booths/representatives/remove": {
+    input: {
+      "booth": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["removeRepresentative"]>[0], ["booth"]>>;
+      "representative": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["removeRepresentative"]>[0], ["representative"]>>;
+      "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["current"]>[0], ["session"]>>;
+    };
+    output: {
+      "booth": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["removeRepresentative"]>[0], ["booth"]>>;
+      "representative": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["removeRepresentative"]>[0], ["representative"]>>;
+    };
+    error: { error: AppWideError | "INVALID_INPUT" | "NOT_ASSIGNED" | "NOT_FOUND" | "UNKNOWN_SESSION" };
+  };
+  "/calls/close": {
+    input: {
+      "call": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Calling"]["close"]>[0], ["call"]>>;
+      "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["current"]>[0], ["session"]>>;
+    };
+    output: {
+      "closed": true;
+    };
+    error: { error: AppWideError | "INVALID_INPUT" | "NOT_FOUND" | "UNKNOWN_SESSION" };
+  };
+  "/calls/guest-join": {
+    input: {
+      "booth": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["_inSpace"]>[0], ["booth"]>>;
+      "code": Jsonify<OneOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Hosting"]["_byCode"]>[0], ["code"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Hosting"]["_codeExists"]>[0], ["code"]>]>>;
+    };
+    output: {
+      "joinUrl": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Calling"]["join"]>>, ["joinUrl"]>>;
+    };
+    error: { error: AppWideError | "INVALID_INPUT" | "NOT_FOUND" };
+  };
+  "/calls/join": {
+    input: {
+      "booth": Jsonify<OneOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["_get"]>[0], ["booth"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["_exists"]>[0], ["booth"]>]>>;
+      "session": Jsonify<OneOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["_active"]>[0], ["session"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["_isActive"]>[0], ["session"]>]>>;
+    };
+    output: {
+      "joinUrl": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Calling"]["join"]>>, ["joinUrl"]>>;
+    };
+    error: { error: AppWideError | "INVALID_INPUT" | "NOT_ALLOWED" | "NOT_FOUND" | "UNKNOWN_SESSION" };
+  };
+  "/calls/open": {
+    input: {
+      "booth": Jsonify<OneOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Calling"]["open"]>[0], ["place"]>, AllOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["_get"]>[0], ["booth"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["_isRepresentative"]>[0], ["booth"]>]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["_exists"]>[0], ["booth"]>]>>;
+      "joinUrl": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Calling"]["open"]>[0], ["joinUrl"]>>;
+      "session": Jsonify<OneOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["_active"]>[0], ["session"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["_isActive"]>[0], ["session"]>]>>;
+    };
+    output: {
+      "call": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Calling"]["open"]>>, ["call"]>>;
+    };
+    error: { error: AppWideError | "HOST_BUSY" | "INVALID_INPUT" | "INVALID_URL" | "NOT_ALLOWED" | "NOT_FOUND" | "PLACE_BUSY" | "UNKNOWN_SESSION" };
+  };
+  "/fairs/by-code": {
+    input: {
+      "code": Jsonify<OneOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Hosting"]["_codeExists"]>[0], ["code"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Hosting"]["_byCode"]>[0], ["code"]>]>>;
+    };
+    output: {
+      "fair": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Hosting"]["_byCode"]>>>, ["fair"]>>;
+    };
+    error: { error: AppWideError | "INVALID_INPUT" | "NOT_FOUND" };
+  };
   "/fairs/create": {
     input: {
       "name": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Hosting"]["create"]>[0], ["name"]>>;
-      "organizer": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Hosting"]["create"]>[0], ["organizer"]>>;
+      "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["current"]>[0], ["session"]>>;
     };
     output: {
+      "code": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Hosting"]["create"]>>, ["code"]>>;
       "fair": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Hosting"]["create"]>>, ["fair"]>>;
     };
-    error: { error: AppWideError | "INVALID_INPUT" | "INVALID_NAME" };
+    error: { error: AppWideError | "INVALID_INPUT" | "INVALID_NAME" | "UNKNOWN_SESSION" };
+  };
+  "/fairs/enter": {
+    input: {
+      "fair": Jsonify<OneOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Hosting"]["_exists"]>[0], ["fair"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Navigating"]["enter"]>[0], ["space"]>]>>;
+      "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["current"]>[0], ["session"]>>;
+    };
+    output: {
+      "position": {
+        "x": 0;
+        "y": 0;
+      };
+    };
+    error: { error: AppWideError | "ALREADY_PRESENT" | "INVALID_INPUT" | "UNKNOWN_SESSION" };
+  };
+  "/fairs/leave": {
+    input: {
+      "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["current"]>[0], ["session"]>>;
+    };
+    output: {
+      "left": true;
+    };
+    error: { error: AppWideError | "INVALID_INPUT" | "NOT_FOUND" | "NOT_PRESENT" | "UNKNOWN_SESSION" };
+  };
+  "/fairs/listing": {
+    input: {
+      "fair": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Hosting"]["setListed"]>[0], ["fair"]>>;
+      "listed": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Hosting"]["setListed"]>[0], ["listed"]>>;
+      "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["current"]>[0], ["session"]>>;
+    };
+    output: {
+      "fair": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Hosting"]["setListed"]>[0], ["fair"]>>;
+      "listed": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Hosting"]["setListed"]>[0], ["listed"]>>;
+    };
+    error: { error: AppWideError | "INVALID_INPUT" | "NOT_FOUND" | "UNKNOWN_SESSION" };
+  };
+  "/fairs/move": {
+    input: {
+      "destination": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Navigating"]["move"]>[0], ["destination"]>>;
+      "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["current"]>[0], ["session"]>>;
+    };
+    output: {
+      "position": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Navigating"]["move"]>[0], ["destination"]>>;
+    };
+    error: { error: AppWideError | "INVALID_INPUT" | "INVALID_MOVE" | "NOT_FOUND" | "NOT_PRESENT" | "UNKNOWN_SESSION" };
   };
   "/fairs/page": {
     input: {
@@ -29,12 +238,55 @@ export type RoamWire = {
     };
     output: {
       "page": {
+        "booths": {
+          "booth": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["_in"]>>>, ["booth"]>>;
+          "calls": {
+            "call": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Calling"]["_openAt"]>>>, ["call"]>>;
+            "host": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Calling"]["_openAt"]>>>, ["host"]>>;
+          }[];
+          "description": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["_in"]>>>, ["description"]>>;
+          "footprint": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["_in"]>>>, ["footprint"]>>;
+          "meetingLinkSaved": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["_in"]>>>, ["meetingLinkSaved"]>>;
+          "name": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["_in"]>>>, ["name"]>>;
+          "representatives": {
+            "representative": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["_representatives"]>>>, ["representative"]>>;
+          }[];
+        }[];
+        "code": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Hosting"]["_get"]>>>, ["code"]>>;
         "fair": Jsonify<AllOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Hosting"]["_exists"]>[0], ["fair"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Hosting"]["_get"]>[0], ["fair"]>]>>;
+        "listed": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Hosting"]["_get"]>>>, ["listed"]>>;
         "name": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Hosting"]["_get"]>>>, ["name"]>>;
         "organizer": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Hosting"]["_get"]>>>, ["organizer"]>>;
       };
     };
     error: { error: AppWideError | "INVALID_INPUT" | "NOT_FOUND" };
+  };
+  "/fairs/presence": {
+    input: {
+      "fair": Jsonify<AllOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Hosting"]["_exists"]>[0], ["fair"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Navigating"]["_present"]>[0], ["space"]>]>>;
+    };
+    output: {
+      "presence": {
+        "people": {
+          "person": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Navigating"]["_present"]>>>, ["person"]>>;
+          "position": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Navigating"]["_present"]>>>, ["position"]>>;
+        }[];
+      };
+    };
+    error: { error: AppWideError | "INVALID_INPUT" };
+  };
+  "/fairs/public": {
+    input: Record<string, never>;
+    output: {
+      "directory": {
+        "fairs": {
+          "fair": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Hosting"]["_public"]>>>, ["fair"]>>;
+          "name": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Hosting"]["_public"]>>>, ["name"]>>;
+          "organizer": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Hosting"]["_public"]>>>, ["organizer"]>>;
+        }[];
+      };
+    };
+    error: { error: AppWideError };
   };
   "/reservations/cancel": {
     input: {
@@ -73,15 +325,200 @@ export type RoamWire = {
 export type HttpAppWideError = never;
 
 export type RoamWireHttp = {
+  "/auth/current": {
+    input: Record<string, never>;
+    output: {
+      "account": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Sessioning"]["current"]>>, ["subject"]>>;
+    };
+    error: { error: HttpAppWideError | "INVALID_REQUEST" | "UNAUTHORIZED" };
+  };
+  "/auth/register": {
+    input: {
+      "password": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Authenticating"]["register"]>[0], ["password"]>>;
+      "username": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Authenticating"]["register"]>[0], ["username"]>>;
+    };
+    output: {
+      "account": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["start"]>[0], ["subject"]>>;
+    };
+    error: { error: HttpAppWideError | "CONFLICT" | "INVALID_REQUEST" };
+  };
+  "/auth/sign-in": {
+    input: {
+      "password": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Authenticating"]["authenticate"]>[0], ["password"]>>;
+      "username": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Authenticating"]["authenticate"]>[0], ["username"]>>;
+    };
+    output: {
+      "account": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["start"]>[0], ["subject"]>>;
+    };
+    error: { error: HttpAppWideError | "INVALID_REQUEST" | "UNAUTHORIZED" };
+  };
+  "/auth/sign-out": {
+    input: Record<string, never>;
+    output: {
+      "ended": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Sessioning"]["end"]>>, ["ended"]>>;
+    };
+    error: { error: HttpAppWideError | "INVALID_REQUEST" | "UNAUTHORIZED" };
+  };
+  "/booths/create": {
+    input: {
+      "description": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["create"]>[0], ["description"]>>;
+      "fair": Jsonify<OneOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Hosting"]["verifyOwner"]>[0], ["fair"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["create"]>[0], ["space"]>]>>;
+      "footprint": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["create"]>[0], ["footprint"]>>;
+      "meetingUrl": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["create"]>[0], ["meetingUrl"]>>;
+      "name": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["create"]>[0], ["name"]>>;
+    };
+    output: {
+      "booth": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["create"]>>, ["booth"]>>;
+    };
+    error: { error: HttpAppWideError | "CONFLICT" | "INVALID_REQUEST" | "NOT_FOUND" | "UNAUTHORIZED" };
+  };
+  "/booths/edit": {
+    input: {
+      "booth": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["edit"]>[0], ["booth"]>>;
+      "description": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["edit"]>[0], ["description"]>>;
+      "name": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["edit"]>[0], ["name"]>>;
+    };
+    output: {
+      "booth": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["edit"]>[0], ["booth"]>>;
+    };
+    error: { error: HttpAppWideError | "INVALID_REQUEST" | "NOT_FOUND" | "UNAUTHORIZED" };
+  };
+  "/booths/meeting-link": {
+    input: {
+      "booth": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["meetingLink"]>[0], ["booth"]>>;
+    };
+    output: {
+      "joinUrl": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["meetingLink"]>>, ["joinUrl"]>>;
+    };
+    error: { error: HttpAppWideError | "INVALID_REQUEST" | "NOT_FOUND" | "UNAUTHORIZED" };
+  };
+  "/booths/meeting-link/set": {
+    input: {
+      "booth": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["setMeetingLink"]>[0], ["booth"]>>;
+      "meetingUrl": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["setMeetingLink"]>[0], ["meetingUrl"]>>;
+    };
+    output: {
+      "booth": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["setMeetingLink"]>[0], ["booth"]>>;
+    };
+    error: { error: HttpAppWideError | "INVALID_REQUEST" | "NOT_FOUND" | "UNAUTHORIZED" };
+  };
+  "/booths/representatives/add": {
+    input: {
+      "booth": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["addRepresentative"]>[0], ["booth"]>>;
+      "representative": Jsonify<OneOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Authenticating"]["verifyRegistered"]>[0], ["username"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["addRepresentative"]>[0], ["representative"]>]>>;
+    };
+    output: {
+      "booth": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["addRepresentative"]>[0], ["booth"]>>;
+      "representative": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["addRepresentative"]>[0], ["representative"]>>;
+    };
+    error: { error: HttpAppWideError | "CONFLICT" | "INVALID_REQUEST" | "NOT_FOUND" | "UNAUTHORIZED" };
+  };
+  "/booths/representatives/remove": {
+    input: {
+      "booth": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["removeRepresentative"]>[0], ["booth"]>>;
+      "representative": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["removeRepresentative"]>[0], ["representative"]>>;
+    };
+    output: {
+      "booth": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["removeRepresentative"]>[0], ["booth"]>>;
+      "representative": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["removeRepresentative"]>[0], ["representative"]>>;
+    };
+    error: { error: HttpAppWideError | "INVALID_REQUEST" | "NOT_FOUND" | "UNAUTHORIZED" };
+  };
+  "/calls/close": {
+    input: {
+      "call": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Calling"]["close"]>[0], ["call"]>>;
+    };
+    output: {
+      "closed": true;
+    };
+    error: { error: HttpAppWideError | "INVALID_REQUEST" | "NOT_FOUND" | "UNAUTHORIZED" };
+  };
+  "/calls/guest-join": {
+    input: {
+      "booth": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["_inSpace"]>[0], ["booth"]>>;
+      "code": Jsonify<OneOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Hosting"]["_byCode"]>[0], ["code"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Hosting"]["_codeExists"]>[0], ["code"]>]>>;
+    };
+    output: {
+      "joinUrl": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Calling"]["join"]>>, ["joinUrl"]>>;
+    };
+    error: { error: HttpAppWideError | "INVALID_REQUEST" | "NOT_FOUND" };
+  };
+  "/calls/join": {
+    input: {
+      "booth": Jsonify<OneOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["_get"]>[0], ["booth"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["_exists"]>[0], ["booth"]>]>>;
+    };
+    output: {
+      "joinUrl": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Calling"]["join"]>>, ["joinUrl"]>>;
+    };
+    error: { error: HttpAppWideError | "FORBIDDEN" | "INVALID_REQUEST" | "NOT_FOUND" | "UNAUTHORIZED" };
+  };
+  "/calls/open": {
+    input: {
+      "booth": Jsonify<OneOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Calling"]["open"]>[0], ["place"]>, AllOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["_get"]>[0], ["booth"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["_isRepresentative"]>[0], ["booth"]>]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["_exists"]>[0], ["booth"]>]>>;
+      "joinUrl": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Calling"]["open"]>[0], ["joinUrl"]>>;
+    };
+    output: {
+      "call": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Calling"]["open"]>>, ["call"]>>;
+    };
+    error: { error: HttpAppWideError | "CONFLICT" | "FORBIDDEN" | "INVALID_REQUEST" | "NOT_FOUND" | "UNAUTHORIZED" };
+  };
+  "/fairs/by-code": {
+    input: {
+      "code": Jsonify<OneOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Hosting"]["_codeExists"]>[0], ["code"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Hosting"]["_byCode"]>[0], ["code"]>]>>;
+    };
+    output: {
+      "fair": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Hosting"]["_byCode"]>>>, ["fair"]>>;
+    };
+    error: { error: HttpAppWideError | "INVALID_REQUEST" | "NOT_FOUND" };
+  };
   "/fairs/create": {
     input: {
       "name": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Hosting"]["create"]>[0], ["name"]>>;
-      "organizer": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Hosting"]["create"]>[0], ["organizer"]>>;
     };
     output: {
+      "code": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Hosting"]["create"]>>, ["code"]>>;
       "fair": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Hosting"]["create"]>>, ["fair"]>>;
     };
-    error: { error: HttpAppWideError | "INVALID_REQUEST" };
+    error: { error: HttpAppWideError | "INVALID_REQUEST" | "UNAUTHORIZED" };
+  };
+  "/fairs/enter": {
+    input: {
+      "fair": Jsonify<OneOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Hosting"]["_exists"]>[0], ["fair"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Navigating"]["enter"]>[0], ["space"]>]>>;
+    };
+    output: {
+      "position": {
+        "x": 0;
+        "y": 0;
+      };
+    };
+    error: { error: HttpAppWideError | "CONFLICT" | "INVALID_REQUEST" | "UNAUTHORIZED" };
+  };
+  "/fairs/leave": {
+    input: Record<string, never>;
+    output: {
+      "left": true;
+    };
+    error: { error: HttpAppWideError | "INVALID_REQUEST" | "NOT_FOUND" | "UNAUTHORIZED" };
+  };
+  "/fairs/listing": {
+    input: {
+      "fair": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Hosting"]["setListed"]>[0], ["fair"]>>;
+      "listed": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Hosting"]["setListed"]>[0], ["listed"]>>;
+    };
+    output: {
+      "fair": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Hosting"]["setListed"]>[0], ["fair"]>>;
+      "listed": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Hosting"]["setListed"]>[0], ["listed"]>>;
+    };
+    error: { error: HttpAppWideError | "INVALID_REQUEST" | "NOT_FOUND" | "UNAUTHORIZED" };
+  };
+  "/fairs/move": {
+    input: {
+      "destination": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Navigating"]["move"]>[0], ["destination"]>>;
+    };
+    output: {
+      "position": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Navigating"]["move"]>[0], ["destination"]>>;
+    };
+    error: { error: HttpAppWideError | "INVALID_REQUEST" | "NOT_FOUND" | "UNAUTHORIZED" };
   };
   "/fairs/page": {
     input: {
@@ -89,12 +526,55 @@ export type RoamWireHttp = {
     };
     output: {
       "page": {
+        "booths": {
+          "booth": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["_in"]>>>, ["booth"]>>;
+          "calls": {
+            "call": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Calling"]["_openAt"]>>>, ["call"]>>;
+            "host": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Calling"]["_openAt"]>>>, ["host"]>>;
+          }[];
+          "description": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["_in"]>>>, ["description"]>>;
+          "footprint": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["_in"]>>>, ["footprint"]>>;
+          "meetingLinkSaved": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["_in"]>>>, ["meetingLinkSaved"]>>;
+          "name": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["_in"]>>>, ["name"]>>;
+          "representatives": {
+            "representative": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["_representatives"]>>>, ["representative"]>>;
+          }[];
+        }[];
+        "code": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Hosting"]["_get"]>>>, ["code"]>>;
         "fair": Jsonify<AllOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Hosting"]["_exists"]>[0], ["fair"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Hosting"]["_get"]>[0], ["fair"]>]>>;
+        "listed": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Hosting"]["_get"]>>>, ["listed"]>>;
         "name": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Hosting"]["_get"]>>>, ["name"]>>;
         "organizer": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Hosting"]["_get"]>>>, ["organizer"]>>;
       };
     };
     error: { error: HttpAppWideError | "INVALID_REQUEST" | "NOT_FOUND" };
+  };
+  "/fairs/presence": {
+    input: {
+      "fair": Jsonify<AllOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Hosting"]["_exists"]>[0], ["fair"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Navigating"]["_present"]>[0], ["space"]>]>>;
+    };
+    output: {
+      "presence": {
+        "people": {
+          "person": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Navigating"]["_present"]>>>, ["person"]>>;
+          "position": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Navigating"]["_present"]>>>, ["position"]>>;
+        }[];
+      };
+    };
+    error: { error: HttpAppWideError | "INVALID_REQUEST" };
+  };
+  "/fairs/public": {
+    input: Record<string, never>;
+    output: {
+      "directory": {
+        "fairs": {
+          "fair": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Hosting"]["_public"]>>>, ["fair"]>>;
+          "name": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Hosting"]["_public"]>>>, ["name"]>>;
+          "organizer": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Hosting"]["_public"]>>>, ["organizer"]>>;
+        }[];
+      };
+    };
+    error: { error: HttpAppWideError };
   };
   "/reservations/cancel": {
     input: {
