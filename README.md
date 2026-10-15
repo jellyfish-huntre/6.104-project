@@ -6,7 +6,11 @@ This is my personal project for MIT's [6.104 Software Design](https://61040.gith
 
 - [Problem Framing](docs/design.md#problem-framing-and-stakeholders)
 - [Application Pitch](docs/design.md#application-pitch)
-- [Concept Specs](docs/design.md#concept-specifications-and-reactions)
+- [Current concept specs](app/design/concepts/)
+- [Current reactions, endpoints, formers, and views](app/design/compositions/Roam.md)
+- [Current type bindings](app/design/types.md)
+- [Original P1 concept specs](docs/design.md#concept-specifications-and-reactions)
 - [UI Sketches](docs/design.md#ui-sketches)
 - [User Journey](docs/design.md#user-journey)
 - [P2 MVP User Journey](docs/p2.md)
+- [P2 MVP Recording](https://youtu.be/pUZtNpgzewI)
