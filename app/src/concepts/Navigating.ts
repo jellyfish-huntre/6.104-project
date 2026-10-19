@@ -92,9 +92,10 @@ export class NavigatingConcept {
   }
 
   async leaveGuest({ token }: { token: string }) {
-    const result = await this.presences.deleteOne({ _id: guestPerson(token) });
+    const person = guestPerson(token);
+    const result = await this.presences.deleteOne({ _id: person });
     if (!result.deletedCount) throw new NotPresent("That guest is not in a fair.");
-    return {};
+    return { person };
   }
 
   async _location({ person }: { person: string }) {

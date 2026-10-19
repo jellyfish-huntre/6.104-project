@@ -97,14 +97,14 @@ moveGuest(token: GuestToken, destination: Position) : returns (person: Person, p
   then
     refuses NOT_PRESENT "That person is not in a space."
 
-leaveGuest(token: GuestToken) : returns ()
+leaveGuest(token: GuestToken) : returns (person: Person)
   where token is invalid
   then
     refuses INVALID_GUEST_TOKEN "Use a valid guest token."
   where the guest is active
   then
     remove the guest's presence
-    returns
+    returns person
   where the guest is absent
   then
     refuses NOT_PRESENT "That person is not in a space."

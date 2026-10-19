@@ -127,15 +127,36 @@ export type RoamWire = {
     };
     error: { error: AppWideError | "INVALID_INPUT" | "NOT_ASSIGNED" | "NOT_FOUND" | "UNKNOWN_SESSION" };
   };
+  "/calls/claim-invitation": {
+    input: {
+      "booth": Jsonify<AllOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["_get"]>[0], ["booth"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Queueing"]["_invited"]>[0], ["target"]>]>>;
+      "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["_active"]>[0], ["session"]>>;
+    };
+    output: {
+      "joinUrl": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Calling"]["join"]>>, ["joinUrl"]>>;
+    };
+    error: { error: AppWideError | "INVALID_INPUT" | "NOT_ALLOWED" | "NOT_FOUND" };
+  };
   "/calls/close": {
     input: {
       "call": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Calling"]["close"]>[0], ["call"]>>;
-      "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["current"]>[0], ["session"]>>;
+      "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["_active"]>[0], ["session"]>>;
     };
     output: {
       "closed": true;
     };
-    error: { error: AppWideError | "INVALID_INPUT" | "NOT_FOUND" | "UNKNOWN_SESSION" };
+    error: { error: AppWideError | "INVALID_INPUT" | "NOT_FOUND" };
+  };
+  "/calls/guest-claim-invitation": {
+    input: {
+      "booth": Jsonify<AllOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["_inSpace"]>[0], ["booth"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Queueing"]["_invited"]>[0], ["target"]>]>>;
+      "code": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Hosting"]["_byCode"]>[0], ["code"]>>;
+      "token": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Navigating"]["_guestLocation"]>[0], ["token"]>>;
+    };
+    output: {
+      "joinUrl": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Calling"]["join"]>>, ["joinUrl"]>>;
+    };
+    error: { error: AppWideError | "INVALID_INPUT" | "NOT_ALLOWED" | "NOT_FOUND" };
   };
   "/calls/guest-join": {
     input: {
@@ -158,6 +179,19 @@ export type RoamWire = {
     };
     error: { error: AppWideError | "INVALID_INPUT" | "NOT_ALLOWED" | "NOT_FOUND" | "UNKNOWN_SESSION" };
   };
+  "/calls/mode": {
+    input: {
+      "call": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Calling"]["changeMode"]>[0], ["call"]>>;
+      "joinUrl": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Calling"]["changeMode"]>[0], ["joinUrl"]>>;
+      "mode": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Calling"]["changeMode"]>[0], ["mode"]>>;
+      "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["_active"]>[0], ["session"]>>;
+    };
+    output: {
+      "call": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Calling"]["changeMode"]>[0], ["call"]>>;
+      "mode": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Calling"]["changeMode"]>[0], ["mode"]>>;
+    };
+    error: { error: AppWideError | "ALREADY_OPEN" | "INVALID_INPUT" | "INVALID_MODE" | "INVALID_URL" | "LINK_NOT_ROTATED" | "NOT_FOUND" };
+  };
   "/calls/open": {
     input: {
       "booth": Jsonify<OneOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Calling"]["open"]>[0], ["place"]>, AllOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["_get"]>[0], ["booth"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["_isRepresentative"]>[0], ["booth"]>]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["_exists"]>[0], ["booth"]>]>>;
@@ -167,7 +201,28 @@ export type RoamWire = {
     output: {
       "call": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Calling"]["open"]>>, ["call"]>>;
     };
-    error: { error: AppWideError | "HOST_BUSY" | "INVALID_INPUT" | "INVALID_URL" | "NOT_ALLOWED" | "NOT_FOUND" | "PLACE_BUSY" | "UNKNOWN_SESSION" };
+    error: { error: AppWideError | "ALREADY_OPEN" | "HOST_BUSY" | "INVALID_INPUT" | "INVALID_MODE" | "INVALID_URL" | "NOT_ALLOWED" | "NOT_FOUND" | "PLACE_BUSY" | "UNKNOWN_SESSION" };
+  };
+  "/calls/open-invite": {
+    input: {
+      "booth": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Calling"]["open"]>[0], ["place"]>>;
+      "joinUrl": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Calling"]["open"]>[0], ["joinUrl"]>>;
+      "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["_active"]>[0], ["session"]>>;
+    };
+    output: {
+      "call": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Calling"]["open"]>>, ["call"]>>;
+    };
+    error: { error: AppWideError | "ALREADY_OPEN" | "HOST_BUSY" | "INVALID_INPUT" | "INVALID_MODE" | "INVALID_URL" | "NOT_FOUND" | "PLACE_BUSY" };
+  };
+  "/calls/resume-invite": {
+    input: {
+      "booth": Jsonify<OneOf<[AllOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Calling"]["resume"]>[0], ["place"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Calling"]["_suspendedAt"]>[0], ["place"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["_contains"]>[0], ["booth"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["_get"]>[0], ["booth"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["_isRepresentative"]>[0], ["booth"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Queueing"]["_paused"]>[0], ["target"]>]>, AllOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Calling"]["resume"]>[0], ["place"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Queueing"]["resume"]>[0], ["target"]>]>]>>;
+      "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["_active"]>[0], ["session"]>>;
+    };
+    output: {
+      "call": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Calling"]["resume"]>>, ["call"]>>;
+    };
+    error: { error: AppWideError | "HOST_BUSY" | "INVALID_INPUT" | "NOT_FOUND" | "PLACE_BUSY" };
   };
   "/fairs/by-code": {
     input: {
@@ -220,7 +275,7 @@ export type RoamWire = {
     output: {
       "left": true;
     };
-    error: { error: AppWideError | "INVALID_GUEST_TOKEN" | "INVALID_INPUT" | "NOT_PRESENT" };
+    error: { error: AppWideError | "INVALID_GUEST_TOKEN" | "INVALID_INPUT" | "NOT_PRESENT" | "NOT_WAITING" };
   };
   "/fairs/guest-move": {
     input: {
@@ -240,7 +295,7 @@ export type RoamWire = {
     output: {
       "left": true;
     };
-    error: { error: AppWideError | "INVALID_INPUT" | "NOT_FOUND" | "NOT_PRESENT" | "UNKNOWN_SESSION" };
+    error: { error: AppWideError | "INVALID_INPUT" | "NOT_FOUND" | "NOT_PRESENT" | "NOT_WAITING" | "UNKNOWN_SESSION" };
   };
   "/fairs/listing": {
     input: {
@@ -262,7 +317,7 @@ export type RoamWire = {
     output: {
       "position": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Navigating"]["move"]>[0], ["destination"]>>;
     };
-    error: { error: AppWideError | "INVALID_INPUT" | "INVALID_MOVE" | "NOT_FOUND" | "NOT_PRESENT" | "UNKNOWN_SESSION" };
+    error: { error: AppWideError | "HOST_BUSY" | "INVALID_INPUT" | "INVALID_MOVE" | "NOT_FOUND" | "NOT_PRESENT" | "PLACE_BUSY" | "UNKNOWN_SESSION" };
   };
   "/fairs/page": {
     input: {
@@ -275,11 +330,17 @@ export type RoamWire = {
           "calls": {
             "call": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Calling"]["_openAt"]>>>, ["call"]>>;
             "host": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Calling"]["_openAt"]>>>, ["host"]>>;
+            "mode": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Calling"]["_openAt"]>>>, ["mode"]>>;
           }[];
           "description": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["_in"]>>>, ["description"]>>;
           "footprint": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["_in"]>>>, ["footprint"]>>;
           "meetingLinkSaved": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["_in"]>>>, ["meetingLinkSaved"]>>;
           "name": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["_in"]>>>, ["name"]>>;
+          "queues": {
+            "accepting": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Queueing"]["_status"]>>>, ["accepting"]>>;
+            "pausedUntil": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Queueing"]["_status"]>>>, ["pausedUntil"]>>;
+            "waiting": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Queueing"]["_status"]>>>, ["waiting"]>>;
+          }[];
           "representatives": {
             "representative": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["_representatives"]>>>, ["representative"]>>;
           }[];
@@ -319,6 +380,128 @@ export type RoamWire = {
       };
     };
     error: { error: AppWideError };
+  };
+  "/queues/accepting": {
+    input: {
+      "accepting": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Queueing"]["setAccepting"]>[0], ["accepting"]>>;
+      "booth": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Queueing"]["setAccepting"]>[0], ["target"]>>;
+      "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["_active"]>[0], ["session"]>>;
+    };
+    output: {
+      "accepting": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Queueing"]["setAccepting"]>[0], ["accepting"]>>;
+    };
+    error: { error: AppWideError | "INVALID_INPUT" | "QUEUE_UNAVAILABLE" };
+  };
+  "/queues/booth": {
+    input: {
+      "booth": Jsonify<OneOf<[AllOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["_contains"]>[0], ["booth"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["_get"]>[0], ["booth"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["_isRepresentative"]>[0], ["booth"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Queueing"]["_requests"]>[0], ["target"]>]>, AllOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["_exists"]>[0], ["booth"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["_isRepresentative"]>[0], ["booth"]>]>]>>;
+      "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["_active"]>[0], ["session"]>>;
+    };
+    output: {
+      "queue": {
+        "visitors": {
+          "invitedUntil": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Queueing"]["_requests"]>>>, ["invitedUntil"]>>;
+          "order": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Queueing"]["_requests"]>>>, ["order"]>>;
+          "person": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Queueing"]["_requests"]>>>, ["person"]>>;
+        }[];
+      };
+    };
+    error: { error: AppWideError | "INVALID_INPUT" | "NOT_ALLOWED" };
+  };
+  "/queues/guest-join": {
+    input: {
+      "booth": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Queueing"]["join"]>[0], ["target"]>>;
+      "code": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Hosting"]["_byCode"]>[0], ["code"]>>;
+      "token": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Navigating"]["_guestLocation"]>[0], ["token"]>>;
+    };
+    output: {
+      "order": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Queueing"]["join"]>>, ["order"]>>;
+    };
+    error: { error: AppWideError | "ALREADY_WAITING" | "INVALID_INPUT" | "QUEUE_CLOSED" };
+  };
+  "/queues/guest-leave": {
+    input: {
+      "booth": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Queueing"]["leave"]>[0], ["target"]>>;
+      "code": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Hosting"]["_byCode"]>[0], ["code"]>>;
+      "token": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Navigating"]["_guestLocation"]>[0], ["token"]>>;
+    };
+    output: {
+      "left": true;
+    };
+    error: { error: AppWideError | "INVALID_INPUT" | "NOT_WAITING" };
+  };
+  "/queues/guest-mine": {
+    input: {
+      "booth": Jsonify<AllOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["_inSpace"]>[0], ["booth"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Queueing"]["_mine"]>[0], ["target"]>]>>;
+      "code": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Hosting"]["_byCode"]>[0], ["code"]>>;
+      "token": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Navigating"]["_guestLocation"]>[0], ["token"]>>;
+    };
+    output: {
+      "status": {
+        "requests": {
+          "invitedUntil": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Queueing"]["_mine"]>>>, ["invitedUntil"]>>;
+          "order": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Queueing"]["_mine"]>>>, ["order"]>>;
+        }[];
+      };
+    };
+    error: { error: AppWideError | "INVALID_INPUT" };
+  };
+  "/queues/invite-next": {
+    input: {
+      "booth": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Queueing"]["inviteNext"]>[0], ["target"]>>;
+      "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["_active"]>[0], ["session"]>>;
+    };
+    output: {
+      "invitedUntil": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Queueing"]["inviteNext"]>>, ["invitedUntil"]>>;
+      "visitor": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Queueing"]["inviteNext"]>>, ["person"]>>;
+    };
+    error: { error: AppWideError | "INVALID_INPUT" | "NO_ONE_WAITING" };
+  };
+  "/queues/join": {
+    input: {
+      "booth": Jsonify<OneOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Queueing"]["join"]>[0], ["target"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["_isRepresentative"]>[0], ["booth"]>]>>;
+      "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["_active"]>[0], ["session"]>>;
+    };
+    output: {
+      "order": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Queueing"]["join"]>>, ["order"]>>;
+    };
+    error: { error: AppWideError | "ALREADY_WAITING" | "INVALID_INPUT" | "NOT_ALLOWED" | "QUEUE_CLOSED" };
+  };
+  "/queues/leave": {
+    input: {
+      "booth": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Queueing"]["leave"]>[0], ["target"]>>;
+      "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["current"]>[0], ["session"]>>;
+    };
+    output: {
+      "left": true;
+    };
+    error: { error: AppWideError | "INVALID_INPUT" | "NOT_WAITING" | "UNKNOWN_SESSION" };
+  };
+  "/queues/mine": {
+    input: {
+      "booth": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Queueing"]["_mine"]>[0], ["target"]>>;
+      "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["current"]>[0], ["session"]>>;
+    };
+    output: {
+      "status": {
+        "requests": {
+          "invitedUntil": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Queueing"]["_mine"]>>>, ["invitedUntil"]>>;
+          "order": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Queueing"]["_mine"]>>>, ["order"]>>;
+        }[];
+      };
+    };
+    error: { error: AppWideError | "INVALID_INPUT" | "UNKNOWN_SESSION" };
+  };
+  "/queues/remove": {
+    input: {
+      "booth": Jsonify<OneOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Queueing"]["remove"]>[0], ["target"]>, AllOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["_exists"]>[0], ["booth"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["_isRepresentative"]>[0], ["booth"]>]>]>>;
+      "session": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Sessioning"]["_active"]>[0], ["session"]>>;
+      "visitor": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Queueing"]["remove"]>[0], ["person"]>>;
+    };
+    output: {
+      "removed": true;
+    };
+    error: { error: AppWideError | "INVALID_INPUT" | "NOT_ALLOWED" | "NOT_WAITING" };
   };
   "/reservations/cancel": {
     input: {
@@ -456,6 +639,15 @@ export type RoamWireHttp = {
     };
     error: { error: HttpAppWideError | "INVALID_REQUEST" | "NOT_FOUND" | "UNAUTHORIZED" };
   };
+  "/calls/claim-invitation": {
+    input: {
+      "booth": Jsonify<AllOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["_get"]>[0], ["booth"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Queueing"]["_invited"]>[0], ["target"]>]>>;
+    };
+    output: {
+      "joinUrl": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Calling"]["join"]>>, ["joinUrl"]>>;
+    };
+    error: { error: HttpAppWideError | "FORBIDDEN" | "INVALID_REQUEST" | "NOT_FOUND" };
+  };
   "/calls/close": {
     input: {
       "call": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Calling"]["close"]>[0], ["call"]>>;
@@ -463,7 +655,18 @@ export type RoamWireHttp = {
     output: {
       "closed": true;
     };
-    error: { error: HttpAppWideError | "INVALID_REQUEST" | "NOT_FOUND" | "UNAUTHORIZED" };
+    error: { error: HttpAppWideError | "INVALID_REQUEST" | "NOT_FOUND" };
+  };
+  "/calls/guest-claim-invitation": {
+    input: {
+      "booth": Jsonify<AllOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["_inSpace"]>[0], ["booth"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Queueing"]["_invited"]>[0], ["target"]>]>>;
+      "code": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Hosting"]["_byCode"]>[0], ["code"]>>;
+      "token": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Navigating"]["_guestLocation"]>[0], ["token"]>>;
+    };
+    output: {
+      "joinUrl": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Calling"]["join"]>>, ["joinUrl"]>>;
+    };
+    error: { error: HttpAppWideError | "FORBIDDEN" | "INVALID_REQUEST" | "NOT_FOUND" };
   };
   "/calls/guest-join": {
     input: {
@@ -485,6 +688,18 @@ export type RoamWireHttp = {
     };
     error: { error: HttpAppWideError | "FORBIDDEN" | "INVALID_REQUEST" | "NOT_FOUND" | "UNAUTHORIZED" };
   };
+  "/calls/mode": {
+    input: {
+      "call": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Calling"]["changeMode"]>[0], ["call"]>>;
+      "joinUrl": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Calling"]["changeMode"]>[0], ["joinUrl"]>>;
+      "mode": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Calling"]["changeMode"]>[0], ["mode"]>>;
+    };
+    output: {
+      "call": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Calling"]["changeMode"]>[0], ["call"]>>;
+      "mode": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Calling"]["changeMode"]>[0], ["mode"]>>;
+    };
+    error: { error: HttpAppWideError | "CONFLICT" | "INVALID_REQUEST" | "NOT_FOUND" };
+  };
   "/calls/open": {
     input: {
       "booth": Jsonify<OneOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Calling"]["open"]>[0], ["place"]>, AllOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["_get"]>[0], ["booth"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["_isRepresentative"]>[0], ["booth"]>]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["_exists"]>[0], ["booth"]>]>>;
@@ -494,6 +709,25 @@ export type RoamWireHttp = {
       "call": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Calling"]["open"]>>, ["call"]>>;
     };
     error: { error: HttpAppWideError | "CONFLICT" | "FORBIDDEN" | "INVALID_REQUEST" | "NOT_FOUND" | "UNAUTHORIZED" };
+  };
+  "/calls/open-invite": {
+    input: {
+      "booth": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Calling"]["open"]>[0], ["place"]>>;
+      "joinUrl": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Calling"]["open"]>[0], ["joinUrl"]>>;
+    };
+    output: {
+      "call": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Calling"]["open"]>>, ["call"]>>;
+    };
+    error: { error: HttpAppWideError | "CONFLICT" | "INVALID_REQUEST" | "NOT_FOUND" };
+  };
+  "/calls/resume-invite": {
+    input: {
+      "booth": Jsonify<OneOf<[AllOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Calling"]["resume"]>[0], ["place"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Calling"]["_suspendedAt"]>[0], ["place"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["_contains"]>[0], ["booth"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["_get"]>[0], ["booth"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["_isRepresentative"]>[0], ["booth"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Queueing"]["_paused"]>[0], ["target"]>]>, AllOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Calling"]["resume"]>[0], ["place"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Queueing"]["resume"]>[0], ["target"]>]>]>>;
+    };
+    output: {
+      "call": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Calling"]["resume"]>>, ["call"]>>;
+    };
+    error: { error: HttpAppWideError | "CONFLICT" | "INVALID_REQUEST" | "NOT_FOUND" };
   };
   "/fairs/by-code": {
     input: {
@@ -582,7 +816,7 @@ export type RoamWireHttp = {
     output: {
       "position": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Navigating"]["move"]>[0], ["destination"]>>;
     };
-    error: { error: HttpAppWideError | "INVALID_REQUEST" | "NOT_FOUND" | "UNAUTHORIZED" };
+    error: { error: HttpAppWideError | "CONFLICT" | "INVALID_REQUEST" | "NOT_FOUND" | "UNAUTHORIZED" };
   };
   "/fairs/page": {
     input: {
@@ -595,11 +829,17 @@ export type RoamWireHttp = {
           "calls": {
             "call": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Calling"]["_openAt"]>>>, ["call"]>>;
             "host": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Calling"]["_openAt"]>>>, ["host"]>>;
+            "mode": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Calling"]["_openAt"]>>>, ["mode"]>>;
           }[];
           "description": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["_in"]>>>, ["description"]>>;
           "footprint": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["_in"]>>>, ["footprint"]>>;
           "meetingLinkSaved": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["_in"]>>>, ["meetingLinkSaved"]>>;
           "name": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["_in"]>>>, ["name"]>>;
+          "queues": {
+            "accepting": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Queueing"]["_status"]>>>, ["accepting"]>>;
+            "pausedUntil": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Queueing"]["_status"]>>>, ["pausedUntil"]>>;
+            "waiting": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Queueing"]["_status"]>>>, ["waiting"]>>;
+          }[];
           "representatives": {
             "representative": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["_representatives"]>>>, ["representative"]>>;
           }[];
@@ -639,6 +879,121 @@ export type RoamWireHttp = {
       };
     };
     error: { error: HttpAppWideError };
+  };
+  "/queues/accepting": {
+    input: {
+      "accepting": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Queueing"]["setAccepting"]>[0], ["accepting"]>>;
+      "booth": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Queueing"]["setAccepting"]>[0], ["target"]>>;
+    };
+    output: {
+      "accepting": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Queueing"]["setAccepting"]>[0], ["accepting"]>>;
+    };
+    error: { error: HttpAppWideError | "CONFLICT" | "INVALID_REQUEST" };
+  };
+  "/queues/booth": {
+    input: {
+      "booth": Jsonify<OneOf<[AllOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["_contains"]>[0], ["booth"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["_get"]>[0], ["booth"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["_isRepresentative"]>[0], ["booth"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Queueing"]["_requests"]>[0], ["target"]>]>, AllOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["_exists"]>[0], ["booth"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["_isRepresentative"]>[0], ["booth"]>]>]>>;
+    };
+    output: {
+      "queue": {
+        "visitors": {
+          "invitedUntil": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Queueing"]["_requests"]>>>, ["invitedUntil"]>>;
+          "order": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Queueing"]["_requests"]>>>, ["order"]>>;
+          "person": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Queueing"]["_requests"]>>>, ["person"]>>;
+        }[];
+      };
+    };
+    error: { error: HttpAppWideError | "FORBIDDEN" | "INVALID_REQUEST" };
+  };
+  "/queues/guest-join": {
+    input: {
+      "booth": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Queueing"]["join"]>[0], ["target"]>>;
+      "code": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Hosting"]["_byCode"]>[0], ["code"]>>;
+      "token": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Navigating"]["_guestLocation"]>[0], ["token"]>>;
+    };
+    output: {
+      "order": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Queueing"]["join"]>>, ["order"]>>;
+    };
+    error: { error: HttpAppWideError | "CONFLICT" | "INVALID_REQUEST" };
+  };
+  "/queues/guest-leave": {
+    input: {
+      "booth": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Queueing"]["leave"]>[0], ["target"]>>;
+      "code": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Hosting"]["_byCode"]>[0], ["code"]>>;
+      "token": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Navigating"]["_guestLocation"]>[0], ["token"]>>;
+    };
+    output: {
+      "left": true;
+    };
+    error: { error: HttpAppWideError | "INVALID_REQUEST" | "NOT_FOUND" };
+  };
+  "/queues/guest-mine": {
+    input: {
+      "booth": Jsonify<AllOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["_inSpace"]>[0], ["booth"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Queueing"]["_mine"]>[0], ["target"]>]>>;
+      "code": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Hosting"]["_byCode"]>[0], ["code"]>>;
+      "token": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Navigating"]["_guestLocation"]>[0], ["token"]>>;
+    };
+    output: {
+      "status": {
+        "requests": {
+          "invitedUntil": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Queueing"]["_mine"]>>>, ["invitedUntil"]>>;
+          "order": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Queueing"]["_mine"]>>>, ["order"]>>;
+        }[];
+      };
+    };
+    error: { error: HttpAppWideError | "INVALID_REQUEST" };
+  };
+  "/queues/invite-next": {
+    input: {
+      "booth": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Queueing"]["inviteNext"]>[0], ["target"]>>;
+    };
+    output: {
+      "invitedUntil": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Queueing"]["inviteNext"]>>, ["invitedUntil"]>>;
+      "visitor": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Queueing"]["inviteNext"]>>, ["person"]>>;
+    };
+    error: { error: HttpAppWideError | "INVALID_REQUEST" | "NOT_FOUND" };
+  };
+  "/queues/join": {
+    input: {
+      "booth": Jsonify<OneOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Queueing"]["join"]>[0], ["target"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["_isRepresentative"]>[0], ["booth"]>]>>;
+    };
+    output: {
+      "order": Jsonify<AtPath<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Queueing"]["join"]>>, ["order"]>>;
+    };
+    error: { error: HttpAppWideError | "CONFLICT" | "FORBIDDEN" | "INVALID_REQUEST" };
+  };
+  "/queues/leave": {
+    input: {
+      "booth": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Queueing"]["leave"]>[0], ["target"]>>;
+    };
+    output: {
+      "left": true;
+    };
+    error: { error: HttpAppWideError | "INVALID_REQUEST" | "NOT_FOUND" | "UNAUTHORIZED" };
+  };
+  "/queues/mine": {
+    input: {
+      "booth": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Queueing"]["_mine"]>[0], ["target"]>>;
+    };
+    output: {
+      "status": {
+        "requests": {
+          "invitedUntil": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Queueing"]["_mine"]>>>, ["invitedUntil"]>>;
+          "order": Jsonify<AtPath<QueryRow<Awaited<ReturnType<(typeof ApplicationConceptSet.concepts)["Queueing"]["_mine"]>>>, ["order"]>>;
+        }[];
+      };
+    };
+    error: { error: HttpAppWideError | "INVALID_REQUEST" | "UNAUTHORIZED" };
+  };
+  "/queues/remove": {
+    input: {
+      "booth": Jsonify<OneOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Queueing"]["remove"]>[0], ["target"]>, AllOf<[AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["_exists"]>[0], ["booth"]>, AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Exhibiting"]["_isRepresentative"]>[0], ["booth"]>]>]>>;
+      "visitor": Jsonify<AtPath<Parameters<(typeof ApplicationConceptSet.concepts)["Queueing"]["remove"]>[0], ["person"]>>;
+    };
+    output: {
+      "removed": true;
+    };
+    error: { error: HttpAppWideError | "FORBIDDEN" | "INVALID_REQUEST" | "NOT_FOUND" };
   };
   "/reservations/cancel": {
     input: {

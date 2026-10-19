@@ -6,6 +6,7 @@ import sessioningSpec from "@design/concepts/Sessioning.md" with { type: "text" 
 import exhibitingSpec from "@design/concepts/Exhibiting.md" with { type: "text" };
 import navigatingSpec from "@design/concepts/Navigating.md" with { type: "text" };
 import callingSpec from "@design/concepts/Calling.md" with { type: "text" };
+import queueingSpec from "@design/concepts/Queueing.md" with { type: "text" };
 import {
   AlreadyReserved,
   NoSuchReservation,
@@ -23,7 +24,8 @@ import {
   InvalidMeetingUrl,
 } from "./concepts/Exhibiting.ts";
 import { NavigatingConcept, AlreadyPresent, NotPresent, InvalidMove, InvalidGuestToken } from "./concepts/Navigating.ts";
-import { CallingConcept, InvalidCallUrl, PlaceBusy, HostBusy, NoSuchCall } from "./concepts/Calling.ts";
+import { CallingConcept, InvalidCallUrl, PlaceBusy, HostBusy, NoSuchCall, InvalidMode, LinkNotRotated } from "./concepts/Calling.ts";
+import { QueueingConcept, AlreadyOpen, QueueUnavailable, QueueClosed, AlreadyWaiting, NotWaiting, NoOneWaiting, NoSuchQueue } from "./concepts/Queueing.ts";
 
 const reserving = registerConcept({
   class: ReservingConcept,
@@ -87,6 +89,18 @@ const calling = registerConcept({
   refusals: {
     INVALID_URL: InvalidCallUrl, PLACE_BUSY: PlaceBusy,
     HOST_BUSY: HostBusy, NOT_FOUND: NoSuchCall,
+    INVALID_MODE: InvalidMode, LINK_NOT_ROTATED: LinkNotRotated,
+  },
+});
+
+const queueing = registerConcept({
+  class: QueueingConcept,
+  spec: queueingSpec,
+  refusals: {
+    ALREADY_OPEN: AlreadyOpen, QUEUE_UNAVAILABLE: QueueUnavailable,
+    QUEUE_CLOSED: QueueClosed, ALREADY_WAITING: AlreadyWaiting,
+    NOT_WAITING: NotWaiting, NO_ONE_WAITING: NoOneWaiting,
+    NOT_FOUND: NoSuchQueue,
   },
 });
 
@@ -98,5 +112,6 @@ export const applicationConceptSet = conceptSet({
   Exhibiting: exhibiting,
   Navigating: navigating,
   Calling: calling,
+  Queueing: queueing,
 });
 export const { concepts } = applicationConceptSet;

@@ -19,6 +19,7 @@ label {
 
 input,
 textarea,
+select,
 button {
   font: inherit;
   padding: 0.5rem;
@@ -132,6 +133,20 @@ textarea { min-height: 4rem; resize: vertical; }
 }
 .avatar-overflow { background: #334155; color: white; border-radius: 0.25rem; padding: 0 2px; font-size: 0.6rem; }
 .live-call { color: #166534; font-weight: 600; }
+.request-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.85rem;
+  padding: 0.55rem 0;
+  border-top: 1px solid #d6dde5;
+}
+.request-row .text-button { margin: 0 0 0 auto; }
+.queue-controls, .host-queue-controls, .mode-controls { margin-top: 1rem; }
+.host-queue-controls { padding-top: 1rem; border-top: 1px solid #d6dde5; }
+.invite-controls { display: flex; flex-wrap: wrap; align-items: end; gap: 0.75rem; margin: 0.75rem 0; }
+.invite-controls label { min-width: 8rem; }
+button:disabled { cursor: not-allowed; opacity: 0.55; }
 @media (max-width: 50rem) {
   .discovery-layout.has-details { grid-template-columns: 1fr; }
 }

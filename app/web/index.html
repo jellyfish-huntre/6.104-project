@@ -88,9 +88,20 @@
         </button>
 
         <h3>Explore the fair</h3>
-        <p class="hint">Move your triangle with the arrow keys or WASD. Other people appear as triangles in their own colors; yours has a white outline. Select a colored booth cell to read about it. Anyone in a booth can get its live call link.</p>
+        <p class="hint">Move your triangle with the arrow keys or WASD. Other people appear as triangles in their own colors; yours has a white outline. Select a colored booth cell to read about it. Open group calls are available inside a booth; for invite-only calls, request a turn and keep exploring.</p>
         <p class="hint" aria-live="polite">Your avatar is at ({{ avatar.x }}, {{ avatar.y }}).</p>
         <p class="hint">{{ joinedFair ? 'You are in the fair.' : 'Entering the fair…' }} {{ people.length }} {{ people.length === 1 ? 'person' : 'people' }} here.</p>
+        <section v-if="activeRequests.length" class="request-summary" aria-label="Your waiting requests">
+          <h3>Your waiting requests</h3>
+          <div v-for="item in activeRequests" :key="item.booth.booth" class="request-row">
+            <strong>{{ item.booth.name }}</strong>
+            <span v-if="item.request.invitedUntil">{{ invitationActive(item.request.invitedUntil) ? 'Invitation expires in ' + remainingTime(item.request.invitedUntil) : 'Invitation expired' }}</span>
+            <span v-else>{{ item.booth.queues[0]?.pausedUntil ? 'Queue paused' : 'Waiting for an invitation' }}</span>
+            <button v-if="item.request.invitedUntil && item.booth.calls[0]?.mode === 'INVITE_ONLY'" type="button" :disabled="busy || !invitationActive(item.request.invitedUntil)" @click="claimInvitation(item.booth.booth)">Get invited link</button>
+            <button type="button" class="text-button" :disabled="busy" @click="leaveQueue(item.booth.booth)">Leave queue</button>
+          </div>
+        </section>
+        <p v-if="validJoinLink"><a :href="joinLink" target="_blank" rel="noopener noreferrer">Open video call</a></p>
         <div class="discovery-layout" :class="{ 'has-details': selectedBooth }">
           <div class="fair-map" aria-label="Fair booth map">
             <template v-for="cell in mapCells" :key="`${cell.x},${cell.y}`">
@@ -124,24 +135,72 @@
               <span v-if="selectedBooth.representatives.length === 0">none assigned</span>
               <span v-else>{{ selectedBooth.representatives.map((rep) => rep.representative).join(', ') }}</span>
             </p>
-            <p v-if="selectedBooth.calls.length">Live call hosted by {{ selectedBooth.calls[0].host }}</p>
+            <p v-if="selectedCall">{{ selectedCall.mode === 'INVITE_ONLY' ? 'Invite-only call' : 'Open group call' }} hosted by {{ selectedCall.host }}</p>
             <p v-else class="hint">No live call at this booth.</p>
-            <form v-if="representsSelectedBooth && insideSelectedBooth && !selectedBooth.calls.length"
+            <p v-if="selectedQueue">{{ selectedQueue.waiting }} {{ selectedQueue.waiting === 1 ? 'visitor' : 'visitors' }} waiting. {{ selectedQueue.pausedUntil ? 'Queue paused while a representative returns.' : selectedQueue.accepting ? 'New requests are open.' : 'New requests are closed.' }}</p>
+            <div v-if="representsSelectedBooth && insideSelectedBooth && !selectedBooth.calls.length && selectedQueue?.pausedUntil">
+              <button type="button" :disabled="busy" @click="resumeInviteCall(selectedBooth.booth)">Resume invite-only call</button>
+              <p class="hint">Use the same meeting link and continue the waiting queue.</p>
+            </div>
+            <details v-if="representsSelectedBooth && insideSelectedBooth && !selectedBooth.calls.length && selectedQueue?.pausedUntil">
+              <summary>Use a different meeting link</summary>
+              <form @submit.prevent="openCall(selectedBooth.booth)">
+                <label>Video meeting link
+                  <input v-model="callUrl" type="url" placeholder="https://meet.google.com/…" required maxlength="2000" />
+                </label>
+                <button :disabled="busy" type="submit" @click="newCallMode = 'INVITE_ONLY'">Open invite-only call with this link</button>
+              </form>
+            </details>
+            <form v-if="representsSelectedBooth && insideSelectedBooth && !selectedBooth.calls.length && !selectedQueue?.pausedUntil"
               @submit.prevent="openCall(selectedBooth.booth)">
-              <p v-if="selectedBooth.meetingLinkSaved" class="hint">Opening this call will use the booth's saved meeting link.</p>
+              <label>Conversation mode
+                <select v-model="newCallMode"><option value="OPEN_GROUP">Open group</option><option value="INVITE_ONLY">Invite-only</option></select>
+              </label>
+              <p v-if="selectedBooth.meetingLinkSaved && newCallMode === 'OPEN_GROUP'" class="hint">Opening this call will use the booth's saved meeting link.</p>
               <label v-else>Video meeting link
                 <input v-model="callUrl" type="url" placeholder="https://meet.google.com/…" required maxlength="2000" />
               </label>
-              <p v-if="!selectedBooth.meetingLinkSaved" class="hint">Paste a meeting link from your video provider, not this fair's URL.</p>
-              <button :disabled="busy">Open call here</button>
+              <p v-if="!selectedBooth.meetingLinkSaved || newCallMode === 'INVITE_ONLY'" class="hint">Paste a meeting link from your video provider.</p>
+              <button :disabled="busy">{{ newCallMode === 'INVITE_ONLY' ? 'Open invite-only call and queue' : 'Open group call here' }}</button>
             </form>
-            <button v-if="selectedBooth.calls.length && selectedBooth.calls[0].host === account"
-              @click="closeCall(selectedBooth.calls[0].call)" :disabled="busy">Close call</button>
-            <button v-if="selectedBooth.calls.length && insideSelectedBooth"
+            <div v-if="selectedCall && selectedCall.host === account && insideSelectedBooth" class="mode-controls">
+              <label>Meeting link for the next mode
+                <input v-model="modeUrl" type="url" placeholder="https://meet.google.com/…" maxlength="2000" />
+              </label>
+              <button type="button" :disabled="busy || !modeUrl" @click="changeCallMode(selectedCall.call, selectedCall.mode === 'OPEN_GROUP' ? 'INVITE_ONLY' : 'OPEN_GROUP')">
+                {{ selectedCall.mode === 'OPEN_GROUP' ? 'Switch to invite-only' : 'Switch to open group and clear queue' }}
+              </button>
+            </div>
+            <button v-if="selectedCall && selectedCall.host === account"
+              @click="closeCall(selectedCall.call)" :disabled="busy">{{ selectedCall.mode === 'INVITE_ONLY' ? 'Close call and queue' : 'Close call' }}</button>
+            <button v-if="selectedCall?.mode === 'OPEN_GROUP' && insideSelectedBooth"
               @click="joinCall(selectedBooth.booth)" :disabled="busy">Get call link</button>
-            <p v-if="selectedBooth.calls.length && !insideSelectedBooth" class="hint">Move into this booth to get its call link.</p>
+            <p v-if="selectedCall?.mode === 'OPEN_GROUP' && !insideSelectedBooth" class="hint">Move into this booth to get its call link.</p>
             <p v-if="representsSelectedBooth && !insideSelectedBooth" class="hint">Move into this booth to open its call.</p>
-            <p v-if="joinLink && selectedBooth.calls[0]?.call === joinedCall"><a :href="joinLink" target="_blank" rel="noopener noreferrer">Open video call</a></p>
+            <div v-if="selectedQueue" class="queue-controls">
+              <p v-if="selectedMyRequest?.invitedUntil">{{ invitationActive(selectedMyRequest.invitedUntil) ? 'Your invitation expires in ' + remainingTime(selectedMyRequest.invitedUntil) : 'Your invitation expired' }}.</p>
+              <p v-else-if="selectedMyRequest">You are waiting. You can explore other booths.</p>
+              <button v-if="selectedMyRequest?.invitedUntil && selectedCall?.mode === 'INVITE_ONLY'" type="button" :disabled="busy || !invitationActive(selectedMyRequest.invitedUntil)" @click="claimInvitation(selectedBooth.booth)">Get invited link</button>
+              <button v-if="selectedMyRequest" type="button" class="text-button" :disabled="busy" @click="leaveQueue(selectedBooth.booth)">Leave queue</button>
+              <p v-else-if="representsSelectedBooth" class="hint">You represent this booth.</p>
+              <button v-else-if="selectedQueue.accepting && !selectedQueue.pausedUntil && selectedCall?.mode === 'INVITE_ONLY'" type="button" :disabled="busy" @click="joinQueue(selectedBooth.booth)">Request a turn</button>
+              <p v-else-if="!selectedQueue.pausedUntil" class="hint">This booth is not taking new requests.</p>
+              <div v-if="representsSelectedBooth && insideSelectedBooth && selectedCall?.mode === 'INVITE_ONLY'" class="host-queue-controls">
+                <button type="button" :disabled="busy" @click="setQueueAccepting(selectedBooth.booth, !selectedQueue.accepting)">{{ selectedQueue.accepting ? 'Stop new requests' : 'Allow new requests' }}</button>
+                <div class="invite-controls">
+                  <label>Invite next
+                    <select v-model.number="inviteCount"><option :value="1">1 visitor</option><option :value="2">2 visitors</option><option :value="3">3 visitors</option></select>
+                  </label>
+                  <button type="button" :disabled="busy || !waitingRosterCount" @click="inviteNext(selectedBooth.booth)">Send invitation</button>
+                </div>
+                <p v-if="!waitingRosterCount" class="hint">No visitors are waiting.</p>
+                <div v-for="visitor in queueRoster" :key="visitor.person" class="request-row">
+                  <span>{{ visitor.person }}</span>
+                  <span>{{ visitor.invitedUntil ? 'Invited' : 'Waiting' }}</span>
+                  <button type="button" class="text-button" :disabled="busy" @click="removeQueueVisitor(selectedBooth.booth, visitor.person)">Remove</button>
+                </div>
+              </div>
+            </div>
           </article>
         </div>
 

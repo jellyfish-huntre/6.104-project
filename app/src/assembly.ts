@@ -9,6 +9,7 @@ import { SessioningConcept } from "./concepts/Sessioning.ts";
 import { ExhibitingConcept } from "./concepts/Exhibiting.ts";
 import { NavigatingConcept } from "./concepts/Navigating.ts";
 import { CallingConcept } from "./concepts/Calling.ts";
+import { QueueingConcept } from "./concepts/Queueing.ts";
 import { applicationConceptSet } from "./concepts.ts";
 import { db } from "./db.ts";
 
@@ -23,6 +24,7 @@ export function assembleApplication() {
       Exhibiting: new ExhibitingConcept(db),
       Navigating: new NavigatingConcept(db),
       Calling: new CallingConcept(db),
+      Queueing: new QueueingConcept(db),
     },
     composition: { Reservations: reservations, Sessions: sessions, Roam: roam },
     // Print what went wrong. Otherwise a failure only shows up as INTERNAL_ERROR.

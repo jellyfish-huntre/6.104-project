@@ -14,3 +14,5 @@ This is my personal project for MIT's [6.104 Software Design](https://61040.gith
 - [User Journey](docs/design.md#user-journey)
 - [P2 MVP User Journey](docs/p2.md)
 - [P2 MVP Recording](https://youtu.be/pUZtNpgzewI)
+- [P3 Beta Plan](docs/p3-plan.md)
+- [P3 Queue and Calling Test Results](docs/p3-test-results.md)

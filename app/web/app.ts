@@ -71,9 +71,18 @@ createApp({
     const moving = ref(false);
     const people = ref<Array<{ person: string; position: { x: number; y: number } }>>([]);
     const callUrl = ref("");
+    const newCallMode = ref<"OPEN_GROUP" | "INVITE_ONLY">("OPEN_GROUP");
+    const modeUrl = ref("");
+    const inviteCount = ref(1);
+    const nowMs = ref(Date.now());
+    const myQueues = reactive<Record<string, { order: number; invitedUntil: string } | null>>({});
+    const queueRoster = ref<Array<{ person: string; order: number; invitedUntil: string }>>([]);
+    const waitingRosterCount = computed(() => queueRoster.value.filter((request) => !request.invitedUntil).length);
     const joinLink = ref("");
     const joinedCall = ref("");
+    const joinedMode = ref("");
     let refreshTimer: ReturnType<typeof setInterval> | undefined;
+    let countdownTimer: ReturnType<typeof setInterval> | undefined;
     const drafts = reactive<Record<string, { name: string; description: string; representative: string; meetingUrl: string }>>({});
     const status = ref("");
     const busy = ref(false);
@@ -88,6 +97,20 @@ createApp({
     const selectedBooth = computed(() =>
       fair.value?.booths.find((booth) => booth.booth === selectedBoothId.value) ?? null,
     );
+    const selectedCall = computed(() => selectedBooth.value?.calls[0] ?? null);
+    const selectedQueue = computed(() => selectedBooth.value?.queues[0] ?? null);
+    const selectedMyRequest = computed(() => selectedBoothId.value ? myQueues[selectedBoothId.value] ?? null : null);
+    const activeRequests = computed(() => fair.value?.booths.flatMap((booth) =>
+      myQueues[booth.booth] ? [{ booth, request: myQueues[booth.booth]! }] : [],
+    ) ?? []);
+    const validJoinLink = computed(() => !!joinLink.value && !!fair.value?.booths.some((booth) =>
+      booth.calls.some((call) => call.call === joinedCall.value && call.mode === joinedMode.value),
+    ));
+    const invitationActive = (invitedUntil: string) => Date.parse(invitedUntil) > nowMs.value;
+    const remainingTime = (invitedUntil: string) => {
+      const seconds = Math.max(0, Math.ceil((Date.parse(invitedUntil) - nowMs.value) / 1000));
+      return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+    };
     const insideSelectedBooth = computed(() => selectedBooth.value ?
       avatar.x >= selectedBooth.value.footprint.x &&
       avatar.x < selectedBooth.value.footprint.x + selectedBooth.value.footprint.width &&
@@ -155,6 +178,8 @@ createApp({
           avatar.y = 0;
         }
         fair.value = result.page;
+        if (!result.page.booths.some((booth) => booth.calls.some((call) =>
+          call.call === joinedCall.value && call.mode === joinedMode.value))) joinLink.value = "";
         fairCode.value = result.page.code;
         if (!silent) selectedBoothId.value = null;
         for (const booth of result.page.booths) {
@@ -170,6 +195,7 @@ createApp({
           if (account.value) await enterFair(id);
           else await enterGuest(id);
         }
+        await refreshQueues();
       } catch {
         if (!silent) status.value = "Could not reach the server. Try again.";
       }
@@ -464,7 +490,7 @@ createApp({
       busy.value = true;
       try {
         let joinUrl = callUrl.value.trim();
-        if (selectedBooth.value?.meetingLinkSaved) {
+        if (newCallMode.value === "OPEN_GROUP" && selectedBooth.value?.meetingLinkSaved) {
           const saved = await client.booths["meeting-link"]({ booth });
           if ("error" in saved) { status.value = messageFor(saved.error); return; }
           joinUrl = saved.joinUrl;
@@ -477,11 +503,165 @@ createApp({
           status.value = "Use a video meeting link, not this Roam page's address.";
           return;
         }
-        const result = await client.calls.open({ booth, joinUrl });
+        const result = newCallMode.value === "INVITE_ONLY"
+          ? await client.calls["open-invite"]({ booth, joinUrl })
+          : await client.calls.open({ booth, joinUrl });
         if ("error" in result) { status.value = messageFor(result.error); return; }
         callUrl.value = "";
         if (fair.value) await loadFair(fair.value.fair, true);
-        status.value = "Call opened at this booth.";
+        status.value = newCallMode.value === "INVITE_ONLY" ? "Invite-only call and queue opened." : "Call opened at this booth.";
+      } catch { status.value = "Could not reach the server. Try again."; }
+      finally { busy.value = false; }
+    }
+
+    async function resumeInviteCall(booth: string) {
+      busy.value = true;
+      try {
+        const result = await client.calls["resume-invite"]({ booth });
+        if ("error" in result) { status.value = messageFor(result.error); return; }
+        if (fair.value) await loadFair(fair.value.fair, true);
+        status.value = "Invite-only call and queue resumed with the same meeting link.";
+      } catch { status.value = "Could not reach the server. Try again."; }
+      finally { busy.value = false; }
+    }
+
+    async function changeCallMode(call: string, mode: "OPEN_GROUP" | "INVITE_ONLY") {
+      const joinUrl = modeUrl.value.trim();
+      if (!joinUrl || pointsToRoam(joinUrl)) {
+        status.value = "Enter a video meeting link for the new mode.";
+        return;
+      }
+      busy.value = true;
+      try {
+        const result = await client.calls.mode({ call, mode, joinUrl });
+        if ("error" in result) {
+          status.value = result.error === "INVALID_REQUEST" && mode === "INVITE_ONLY"
+            ? "Use a different meeting link for invite-only mode." : messageFor(result.error);
+          return;
+        }
+        modeUrl.value = "";
+        joinLink.value = "";
+        if (fair.value) await loadFair(fair.value.fair, true);
+        status.value = mode === "INVITE_ONLY" ? "Invite-only queue opened." : "Open group call ready. Waiting requests were cleared.";
+      } catch { status.value = "Could not reach the server. Try again."; }
+      finally { busy.value = false; }
+    }
+
+    async function refreshQueues() {
+      if (!fair.value) return;
+      await Promise.all(fair.value.booths.map(async (booth) => {
+        if (!booth.queues.length && !myQueues[booth.booth]) return;
+        const result = account.value
+          ? await client.queues.mine({ booth: booth.booth })
+          : await client.queues["guest-mine"]({ code: fairCode.value, booth: booth.booth, token: guestToken });
+        if (!("error" in result)) myQueues[booth.booth] = result.status.requests[0] ?? null;
+      }));
+      const booth = selectedBooth.value;
+      if (booth && representsSelectedBooth.value && insideSelectedBooth.value && booth.queues.length) {
+        const result = await client.queues.booth({ booth: booth.booth });
+        if (!("error" in result)) queueRoster.value = result.queue.visitors;
+      } else queueRoster.value = [];
+    }
+
+    async function joinQueue(booth: string) {
+      busy.value = true;
+      try {
+        const result = account.value
+          ? await client.queues.join({ booth })
+          : await client.queues["guest-join"]({ code: fairCode.value, booth, token: guestToken });
+        if ("error" in result) {
+          status.value = result.error === "CONFLICT"
+            ? selectedMyRequest.value ? "You already have a request at this booth."
+              : "This booth is not taking new requests right now."
+            : messageFor(result.error);
+          return;
+        }
+        await refreshQueues();
+        status.value = "You are waiting for an invitation. You can keep exploring.";
+      } catch { status.value = "Could not reach the server. Try again."; }
+      finally { busy.value = false; }
+    }
+
+    async function leaveQueue(booth: string) {
+      busy.value = true;
+      try {
+        const result = account.value
+          ? await client.queues.leave({ booth })
+          : await client.queues["guest-leave"]({ code: fairCode.value, booth, token: guestToken });
+        if ("error" in result) {
+          status.value = result.error === "NOT_FOUND" ? "Your request is no longer in this queue." : messageFor(result.error);
+          await refreshQueues();
+          return;
+        }
+        myQueues[booth] = null;
+        await refreshQueues();
+        status.value = "You left the queue.";
+      } catch { status.value = "Could not reach the server. Try again."; }
+      finally { busy.value = false; }
+    }
+
+    async function claimInvitation(booth: string) {
+      busy.value = true;
+      joinLink.value = "";
+      try {
+        const result = account.value
+          ? await client.calls["claim-invitation"]({ booth })
+          : await client.calls["guest-claim-invitation"]({ code: fairCode.value, booth, token: guestToken });
+        if ("error" in result) { status.value = "That invitation is no longer available. Check the queue status."; await refreshQueues(); return; }
+        joinLink.value = result.joinUrl;
+        const call = fair.value?.booths.find((candidate) => candidate.booth === booth)?.calls[0];
+        joinedCall.value = call?.call ?? "";
+        joinedMode.value = call?.mode ?? "";
+        status.value = "Meeting link ready. Open it below.";
+      } catch { status.value = "Could not reach the server. Try again."; }
+      finally { busy.value = false; }
+    }
+
+    async function setQueueAccepting(booth: string, accepting: boolean) {
+      busy.value = true;
+      try {
+        const result = await client.queues.accepting({ booth, accepting });
+        if ("error" in result) {
+          status.value = result.error === "CONFLICT" ? "This queue is paused or closed." : messageFor(result.error);
+          await refreshQueues();
+          return;
+        }
+        if (fair.value) await loadFair(fair.value.fair, true);
+        status.value = accepting ? "Visitors can request a turn." : "New requests are closed; existing visitors remain in the queue.";
+      } catch { status.value = "Could not reach the server. Try again."; }
+      finally { busy.value = false; }
+    }
+
+    async function removeQueueVisitor(booth: string, visitor: string) {
+      busy.value = true;
+      try {
+        const result = await client.queues.remove({ booth, visitor });
+        if ("error" in result) {
+          status.value = result.error === "NOT_FOUND" ? "That visitor is no longer in the queue." : messageFor(result.error);
+          await refreshQueues();
+          return;
+        }
+        await refreshQueues();
+        status.value = "Visitor removed from the queue.";
+      } catch { status.value = "Could not reach the server. Try again."; }
+      finally { busy.value = false; }
+    }
+
+    async function inviteNext(booth: string) {
+      busy.value = true;
+      let invited = 0;
+      try {
+        for (let n = 0; n < Math.min(3, Math.max(1, inviteCount.value)); n++) {
+          const result = await client.queues["invite-next"]({ booth });
+          if ("error" in result) {
+            if (!invited) status.value = result.error === "NOT_FOUND"
+              ? "No visitors are waiting for an invitation." : messageFor(result.error);
+            break;
+          }
+          invited++;
+        }
+        if (invited) status.value = `${invited} ${invited === 1 ? "visitor" : "visitors"} invited for two minutes.`;
+        await refreshQueues();
       } catch { status.value = "Could not reach the server. Try again."; }
       finally { busy.value = false; }
     }
@@ -500,6 +680,7 @@ createApp({
         if ("error" in result) { status.value = messageFor(result.error); return; }
         joinLink.value = result.joinUrl;
         joinedCall.value = selectedBooth.value?.calls[0]?.call ?? "";
+        joinedMode.value = "OPEN_GROUP";
         status.value = "Call link ready. Open it below.";
       } catch { status.value = "Could not reach the server. Try again."; }
       finally { busy.value = false; }
@@ -555,6 +736,7 @@ createApp({
     }
 
     onMounted(async () => {
+      countdownTimer = setInterval(() => { nowMs.value = Date.now(); }, 1000);
       window.addEventListener("keydown", moveAvatar);
       const current = await client.auth.current({}).catch(() => ({ error: "UNAVAILABLE" as const }));
       if (!("error" in current)) {
@@ -578,6 +760,7 @@ createApp({
     onUnmounted(() => {
       window.removeEventListener("keydown", moveAvatar);
       if (refreshTimer) clearInterval(refreshTimer);
+      if (countdownTimer) clearInterval(countdownTimer);
     });
 
     return {
@@ -589,7 +772,10 @@ createApp({
       signOut, createFair, createBooth, editBooth, setBoothMeetingLink, addRepresentative,
       removeRepresentative,
       joinedFair, people, insideSelectedBooth, representsSelectedBooth,
-      callUrl, joinLink, joinedCall, openCall, joinCall, closeCall,
+      callUrl, newCallMode, modeUrl, inviteCount, myQueues, queueRoster, waitingRosterCount,
+      selectedCall, selectedQueue, selectedMyRequest, activeRequests, invitationActive, remainingTime,
+      joinLink, joinedCall, joinedMode, validJoinLink, openCall, resumeInviteCall, joinCall, closeCall, changeCallMode,
+      joinQueue, leaveQueue, claimInvitation, setQueueAccepting, removeQueueVisitor, inviteNext,
     };
   },
 }).mount("#app");

@@ -42,4 +42,38 @@ Roam.GuestJoinCallAbsent at /calls/guest-join
 Roam.CloseCall at /calls/close
 ```
 
-This MVP supports open group calls. Queueing and private invitations belong to a later increment.
+For P3, the same booth call has OPEN_GROUP and INVITE_ONLY modes. A host
+switching from open group to invite-only must provide a fresh external meeting
+link; earlier recipients may still use the old link outside Roam. Queueing
+belongs to each booth and holds waiting requests and two-minute invitations,
+but never a meeting link. A visitor may request one turn per booth, withdraw,
+and keep exploring. An assigned representative cannot request a turn at their
+own booth. The host may stop new requests while preserving the queue,
+remove a visitor, or invite the next one to three in order. An invited visitor
+may retrieve the current invite-only link while the invitation is valid and
+they remain in the fair. Roam cannot verify entry into the external meeting or
+revoke a link already shared. The public fair page shows queue availability
+and count; a visitor sees only their own request, and an assigned
+representative sees the ordered list. All link authorization occurs on the
+server.
+
+If the host leaves the booth or loses the representative assignment, the call
+closes and the queue pauses for five minutes. An assigned representative can
+resume it by opening an invite-only call at that booth; otherwise the queue
+closes and its requests are cleared. Switching back to OPEN_GROUP also closes
+the queue after warning the host. Deliberately closing an invite-only call
+closes its queue; leaving the fair removes that visitor's requests. Server
+time determines deadlines, and
+expired states are refused even before cleanup runs.
+
+```endpoints
+Roam.ChangeCallMode at /calls/mode
+Roam.JoinQueue at /queues/join
+Roam.LeaveQueue at /queues/leave
+Roam.MyQueueStatus at /queues/mine
+Roam.BoothQueue at /queues/booth
+Roam.SetQueueAccepting at /queues/accepting
+Roam.RemoveFromQueue at /queues/remove
+Roam.InviteNext at /queues/invite-next
+Roam.ClaimInvitation at /calls/claim-invitation
+```

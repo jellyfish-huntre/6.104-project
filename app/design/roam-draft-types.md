@@ -42,6 +42,10 @@ instantiate Navigating with
   GuestToken is GuestToken
 
 instantiate Calling with
-  Person is Authenticating.Account
+  Person is Participant
   Place is Exhibiting.Booth
+
+instantiate Queueing with
+  Person is Participant
+  Target is Exhibiting.Booth
 ```
