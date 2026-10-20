@@ -1,0 +1,8 @@
+{
+  "private": true,
+  "packageManager": "bun@1.4.2",
+  "scripts": {
+    "start": "bun run --cwd app start",
+    "preview": "bun run --cwd app db:up && NODE_ENV=production PORT=3000 PUBLIC_ORIGIN=http://127.0.0.1:3000 bun run start"
+  }
+}
