@@ -1,4 +1,4 @@
-import { computed, createApp, onMounted, onUnmounted, reactive, ref } from "vue/dist/vue.esm-bundler.js";
+import { computed, createApp, nextTick, onMounted, onUnmounted, reactive, ref, watch } from "vue/dist/vue.esm-bundler.js";
 import { createHttpClient } from "@mit-sdg/sync-engine-http/client";
 import type { RoamWireHttp } from "../generated/wire.ts";
 
@@ -39,6 +39,14 @@ const avatarPalette = [
   "#1d4ed8", "#dc2626", "#15803d", "#9333ea", "#c2410c", "#0f766e",
   "#be185d", "#7c2d12", "#4d7c0f", "#6d28d9", "#0369a1", "#b45309",
 ];
+const hallPlantCells = [{ x: 3, y: 3 }, { x: 6, y: 3 }, { x: 3, y: 6 }, { x: 6, y: 6 }];
+const walkStepMs = 420;
+const movementSteps: Record<string, [number, number]> = {
+  arrowup: [0, -1], w: [0, -1],
+  arrowdown: [0, 1], s: [0, 1],
+  arrowleft: [-1, 0], a: [-1, 0],
+  arrowright: [1, 0], d: [1, 0],
+};
 
 function identityHash(value: string) {
   let hash = 2166136261;
@@ -49,6 +57,9 @@ function identityHash(value: string) {
 createApp({
   setup() {
     const mode = ref<"register" | "sign-in">("register");
+    const landingView = ref<"enter" | "browse">("enter");
+    const accountPanelOpen = ref(false);
+    const accountPanelIntent = ref<"create" | "sign-in">("create");
     const username = ref("");
     const password = ref("");
     const account = ref<string | null>(null);
@@ -62,14 +73,31 @@ createApp({
     const publicQuery = ref("");
     const boothQuery = ref("");
     const selectedBoothId = ref<string | null>(null);
+    const boothPanelExpanded = ref(true);
+    const directoryOpen = ref(false);
+    const showHitboxes = ref(true);
+    const savedMapStyle = window.localStorage.getItem("roam-map-style");
+    const mapStyle = ref<"pixel" | "kenney">(savedMapStyle === "kenney" ? "kenney" : "pixel");
+    function chooseMapStyle(style: "pixel" | "kenney") {
+      mapStyle.value = style;
+      window.localStorage.setItem("roam-map-style", style);
+    }
     const boothName = ref("");
     const boothDescription = ref("");
     const boothMeetingUrl = ref("");
     const area = reactive({ x: 1, y: 1, width: 2, height: 2 });
     const avatar = reactive({ x: 0, y: 0 });
+    const mapViewport = ref<HTMLElement | null>(null);
     const joinedFair = ref(false);
     const moving = ref(false);
     const people = ref<Array<{ person: string; position: { x: number; y: number } }>>([]);
+    type Facing = "up" | "down" | "left" | "right";
+    const facingByPerson = reactive<Record<string, Facing>>({});
+    const walkingByPerson = reactive<Record<string, boolean>>({});
+    const walkDurationByPerson = reactive<Record<string, number>>({});
+    const walkTimers = new Map<string, ReturnType<typeof setTimeout>>();
+    const heldMovementKeys = new Map<string, [number, number]>();
+    let movementLoopActive = false;
     const callUrl = ref("");
     const newCallMode = ref<"OPEN_GROUP" | "INVITE_ONLY">("OPEN_GROUP");
     const modeUrl = ref("");
@@ -81,11 +109,13 @@ createApp({
     const joinLink = ref("");
     const joinedCall = ref("");
     const joinedMode = ref("");
+    const callError = ref<{ booth: string; message: string } | null>(null);
     let refreshTimer: ReturnType<typeof setInterval> | undefined;
     let countdownTimer: ReturnType<typeof setInterval> | undefined;
     const drafts = reactive<Record<string, { name: string; description: string; representative: string; meetingUrl: string }>>({});
     const status = ref("");
     const busy = ref(false);
+    watch(busy, (started) => { if (started) status.value = ""; }, { flush: "sync" });
     const canManage = computed(() => account.value !== null && account.value === fair.value?.organizer);
     const visiblePublicFairs = computed(() => publicFairs.value.filter(({ name, organizer }) =>
       `${name} ${organizer}`.toLowerCase().includes(publicQuery.value.trim().toLowerCase()),
@@ -94,6 +124,47 @@ createApp({
       `${booth.name} ${booth.description} ${booth.representatives.map((rep) => rep.representative).join(" ")}`
         .toLowerCase().includes(boothQuery.value.trim().toLowerCase()),
     ) ?? []);
+    const boothAreas = computed(() => fair.value?.booths.map((booth, index) => {
+      const furnitureRow = Math.floor(booth.footprint.height * 0.65);
+      return {
+        ...booth,
+        style: {
+          left: `${booth.footprint.x * 10}%`,
+          top: `${booth.footprint.y * 10}%`,
+          width: `${booth.footprint.width * 10}%`,
+          height: `${booth.footprint.height * 10}%`,
+          "--area-hue": String((index * 59 + 220) % 360),
+          "--furniture-top": `${(furnitureRow + 0.2) * 100 / booth.footprint.height}%`,
+          "--furniture-height": `${60 / booth.footprint.height}%`,
+        },
+        roomy: booth.footprint.width > 1 && booth.footprint.height > 1,
+      };
+    }) ?? []);
+    const hallPlants = computed(() => hallPlantCells.filter(({ x, y }) =>
+      !fair.value?.booths.some(({ footprint }) =>
+        x >= footprint.x && x < footprint.x + footprint.width &&
+        y >= footprint.y && y < footprint.y + footprint.height,
+      ),
+    ).map(({ x, y }) => ({ x, y, style: { left: `${(x + 0.5) * 10}%`, top: `${(y + 0.5) * 10}%` } })));
+    const blockedCells = computed(() => {
+      const blocked = new Set(hallPlants.value.map(({ x, y }) => `${x},${y}`));
+      for (const booth of fair.value?.booths ?? []) {
+        const { x, y, width, height } = booth.footprint;
+        if (width < 2 || height < 2) continue;
+        const furnitureRow = y + Math.floor(height * 0.65);
+        for (let offset = 0; offset < width; offset++) {
+          const avatarCenter = offset + 0.5;
+          if (avatarCenter + 0.2 >= width * 0.13 && avatarCenter - 0.2 <= width * 0.87) {
+            blocked.add(`${x + offset},${furnitureRow}`);
+          }
+        }
+      }
+      return blocked;
+    });
+    const hitboxCells = computed(() => [...blockedCells.value].map((key) => {
+      const [x, y] = key.split(",").map(Number);
+      return { key, style: { left: `${x * 10}%`, top: `${y * 10}%` } };
+    }));
     const selectedBooth = computed(() =>
       fair.value?.booths.find((booth) => booth.booth === selectedBoothId.value) ?? null,
     );
@@ -134,37 +205,88 @@ createApp({
       }
       return colors;
     });
-    const mapCells = computed(() => Array.from({ length: 100 }, (_, index) => {
-      const x = index % 10;
-      const y = Math.floor(index / 10);
-      const boothIndex = fair.value?.booths.findIndex(({ footprint }) =>
-        x >= footprint.x && x < footprint.x + footprint.width &&
-        y >= footprint.y && y < footprint.y + footprint.height,
-      ) ?? -1;
-      const booth = boothIndex >= 0 ? fair.value?.booths[boothIndex] : undefined;
-      const atCell = people.value.filter(({ position }) => position.x === x && position.y === y);
-      if (ownPerson.value && avatar.x === x && avatar.y === y &&
-          !atCell.some(({ person }) => person === ownPerson.value)) {
-        atCell.push({ person: ownPerson.value, position: { x, y } });
+    const mapAvatars = computed(() => {
+      const present = [...people.value];
+      if (ownPerson.value && joinedFair.value && !present.some(({ person }) => person === ownPerson.value)) {
+        present.push({ person: ownPerson.value, position: { x: avatar.x, y: avatar.y } });
       }
-      const avatars = atCell.map(({ person }) => ({
-        person,
-        own: person === ownPerson.value,
-        color: avatarColors.value[person] ?? avatarPalette[0]!,
-        label: person === ownPerson.value ? "You" : person.startsWith("guest:")
-          ? `Guest ${person.slice(6, 10).toUpperCase()}` : person,
-      }));
-      return {
-        x, y, booth,
-        avatars: avatars.slice(0, 5), extraAvatars: Math.max(0, avatars.length - 5),
-        avatarLabels: avatars.map(({ label }) => label).join(", "),
-        hue: (boothIndex * 67 + 195) % 360,
-        showName: booth?.footprint.x === x && booth.footprint.y === y,
-      };
-    }));
+      const cellCounts = new Map<string, number>();
+      return present.map(({ person, position }) => {
+        const own = person === ownPerson.value;
+        const x = own ? avatar.x : position.x;
+        const y = own ? avatar.y : position.y;
+        const cellKey = `${x},${y}`;
+        const stack = cellCounts.get(cellKey) ?? 0;
+        cellCounts.set(cellKey, stack + 1);
+        return {
+          person, own, x, y,
+          label: own ? "You" : person.startsWith("guest:")
+            ? `Guest ${person.slice(6, 10).toUpperCase()}` : person,
+          facing: facingByPerson[person] ?? "down",
+          walking: walkingByPerson[person] ?? false,
+          style: {
+            left: `${(x + 0.5) * 10}%`,
+            top: `${(y + 0.5) * 10}%`,
+            "--avatar-color": avatarColors.value[person] ?? avatarPalette[0]!,
+            "--stack-x": `${(stack % 3 - 1) * 10}px`,
+            "--stack-y": `${Math.floor(stack / 3) * 6}px`,
+            "--walk-duration": `${walkDurationByPerson[person] ?? walkStepMs}ms`,
+          },
+        };
+      });
+    });
+
+    function selectBooth(id: string, expand = true) {
+      selectedBoothId.value = id;
+      if (expand) {
+        boothPanelExpanded.value = true;
+        directoryOpen.value = false;
+      }
+    }
+
+    function markWalking(person: string, dx: number, dy: number, duration = walkStepMs) {
+      if (dx > 0) facingByPerson[person] = "right";
+      else if (dx < 0) facingByPerson[person] = "left";
+      else if (dy > 0) facingByPerson[person] = "down";
+      else if (dy < 0) facingByPerson[person] = "up";
+      walkingByPerson[person] = true;
+      walkDurationByPerson[person] = duration;
+      const previous = walkTimers.get(person);
+      if (previous) clearTimeout(previous);
+      walkTimers.set(person, setTimeout(() => {
+        walkingByPerson[person] = false;
+        walkTimers.delete(person);
+      }, duration + 40));
+    }
+
+    function clearHeldMovement() {
+      heldMovementKeys.clear();
+    }
+    watch(accountPanelOpen, (open) => {
+      if (open) clearHeldMovement();
+    });
+
+    function keepAvatarInView() {
+      const viewport = mapViewport.value;
+      const map = viewport?.querySelector<HTMLElement>(".fair-map");
+      if (!viewport || !map) return;
+      const left = (avatar.x + 0.5) * map.clientWidth / 10 - viewport.clientWidth / 2;
+      const top = (avatar.y + 0.5) * map.clientHeight / 10 - viewport.clientHeight / 2;
+      const behavior = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
+      viewport.scrollTo({ left, top, behavior });
+    }
+    watch(() => [avatar.x, avatar.y, joinedFair.value], () => {
+      void nextTick(keepAvatarInView);
+    });
+
+    function openAccountPanel(intent: "create" | "sign-in") {
+      accountPanelIntent.value = intent;
+      accountPanelOpen.value = true;
+      if (intent === "sign-in") mode.value = "sign-in";
+    }
 
     async function loadFair(id: string, silent = false) {
-      if (!silent) status.value = "Loading fair…";
+      if (!silent) status.value = "";
       try {
         const result = await client.fairs.page({ fair: id });
         if ("error" in result || !result.page) {
@@ -174,8 +296,15 @@ createApp({
         }
         const changedFair = fair.value?.fair !== result.page.fair;
         if (changedFair) {
+          clearHeldMovement();
           avatar.x = 0;
           avatar.y = 0;
+          people.value = [];
+          directoryOpen.value = false;
+          boothPanelExpanded.value = true;
+          for (const timer of walkTimers.values()) clearTimeout(timer);
+          walkTimers.clear();
+          for (const person of Object.keys(walkingByPerson)) delete walkingByPerson[person];
         }
         fair.value = result.page;
         if (!result.page.booths.some((booth) => booth.calls.some((call) =>
@@ -204,10 +333,17 @@ createApp({
     async function refreshPresence(id: string) {
       const result = await client.fairs.presence({ fair: id });
       if ("error" in result || !result.presence) return;
+      const prior = new Map(people.value.map(({ person, position }) => [person, position]));
+      for (const { person, position } of result.presence.people) {
+        const before = prior.get(person);
+        if (!before || person === ownPerson.value || (before.x === position.x && before.y === position.y)) continue;
+        const distance = Math.abs(position.x - before.x) + Math.abs(position.y - before.y);
+        markWalking(person, position.x - before.x, position.y - before.y, Math.min(900, walkStepMs * distance));
+      }
       people.value = result.presence.people;
       const own = people.value.find((person) => person.person === ownPerson.value);
       joinedFair.value = !!own;
-      if (own) { avatar.x = own.position.x; avatar.y = own.position.y; }
+      if (own && !moving.value) { avatar.x = own.position.x; avatar.y = own.position.y; }
     }
 
     async function enterFair(id: string) {
@@ -243,7 +379,7 @@ createApp({
         return;
       }
       busy.value = true;
-      status.value = "Opening fair…";
+      status.value = "";
       try {
         const result = await client.fairs["by-code"]({ code });
         if ("error" in result) {
@@ -272,7 +408,41 @@ createApp({
       url.searchParams.set("fair", id);
       window.history.replaceState(null, "", url);
       await loadFair(id);
+      if (fair.value) accountPanelOpen.value = false;
       document.getElementById("fair-details")?.scrollIntoView({ behavior: "smooth" });
+    }
+
+    async function leaveFairView() {
+      if (!fair.value || busy.value) return;
+      clearHeldMovement();
+      busy.value = true;
+      try {
+        if (joinedFair.value) {
+          if (account.value) await client.fairs.leave({});
+          else await client.fairs["guest-leave"]({ token: guestToken });
+        }
+        fair.value = null;
+        selectedBoothId.value = null;
+        directoryOpen.value = false;
+        boothPanelExpanded.value = true;
+        joinedFair.value = false;
+        people.value = [];
+        for (const timer of walkTimers.values()) clearTimeout(timer);
+        walkTimers.clear();
+        for (const person of Object.keys(walkingByPerson)) delete walkingByPerson[person];
+        joinLink.value = "";
+        for (const booth of Object.keys(myQueues)) delete myQueues[booth];
+        const url = new URL(window.location.href);
+        url.searchParams.delete("fair");
+        window.history.replaceState(null, "", url);
+        landingView.value = "enter";
+        status.value = "";
+        window.scrollTo(0, 0);
+      } catch {
+        status.value = "Could not leave the fair. Try again.";
+      } finally {
+        busy.value = false;
+      }
     }
 
     async function submitAuth() {
@@ -288,7 +458,7 @@ createApp({
         }
       }
       busy.value = true;
-      status.value = mode.value === "register" ? "Creating account…" : "Signing in…";
+      status.value = "";
       try {
         const credentials = { username: chosenUsername, password: password.value };
         const result = mode.value === "register"
@@ -307,7 +477,8 @@ createApp({
         ownPerson.value = result.account;
         joinedFair.value = false;
         password.value = "";
-        status.value = `Signed in as ${result.account}.`;
+        status.value = "";
+        if (accountPanelIntent.value === "sign-in") accountPanelOpen.value = false;
         if (fair.value) await enterFair(fair.value.fair);
       } catch {
         status.value = "Could not reach the server. Try again.";
@@ -331,7 +502,7 @@ createApp({
         people.value = [];
         avatar.x = 0; avatar.y = 0;
         if (fair.value) await enterGuest(fair.value.fair);
-        status.value = "Signed out.";
+        status.value = "";
       } catch {
         status.value = "Could not reach the server. Try again.";
       } finally {
@@ -356,10 +527,9 @@ createApp({
           }
         }
         await openFair(result.fair);
+        accountPanelOpen.value = false;
         await loadPublicFairs();
-        if (fair.value) status.value = listNewFair.value
-          ? `Fair created and listed publicly. Its code is ${result.code}.`
-          : `Fair created. Share code ${result.code} with students.`;
+        status.value = "";
       } catch {
         status.value = "Could not reach the server. Try again.";
       } finally {
@@ -375,7 +545,7 @@ createApp({
         if ("error" in result) { status.value = messageFor(result.error); return; }
         await loadFair(fair.value.fair, true);
         await loadPublicFairs();
-        status.value = listed ? "Fair added to the public list." : "Fair removed from the public list.";
+        status.value = "";
       } catch { status.value = "Could not reach the server. Try again."; }
       finally { busy.value = false; }
     }
@@ -408,7 +578,7 @@ createApp({
         boothMeetingUrl.value = "";
         await loadFair(fair.value.fair);
         selectedBoothId.value = result.booth;
-        status.value = "Booth added.";
+        status.value = "";
       } catch {
         status.value = "Could not reach the server. Try again.";
       } finally {
@@ -431,7 +601,7 @@ createApp({
           return;
         }
         await loadFair(fair.value.fair);
-        status.value = "Booth updated.";
+        status.value = "";
       } catch { status.value = "Could not reach the server. Try again."; }
       finally { busy.value = false; }
     }
@@ -448,7 +618,7 @@ createApp({
         if ("error" in result) { status.value = messageFor(result.error); return; }
         drafts[booth]!.meetingUrl = "";
         await loadFair(fair.value.fair, true);
-        status.value = meetingUrl.trim() ? "Meeting link saved for this booth." : "Meeting link removed from this booth.";
+        status.value = "";
       } catch { status.value = "Could not reach the server. Try again."; }
       finally { busy.value = false; }
     }
@@ -469,7 +639,7 @@ createApp({
         }
         drafts[booth]!.representative = "";
         await loadFair(fair.value.fair);
-        status.value = "Representative assigned.";
+        status.value = "";
       } catch { status.value = "Could not reach the server. Try again."; }
       finally { busy.value = false; }
     }
@@ -481,7 +651,7 @@ createApp({
         const result = await client.booths.representatives.remove({ booth, representative });
         if ("error" in result) { status.value = messageFor(result.error); return; }
         await loadFair(fair.value.fair);
-        status.value = "Representative removed.";
+        status.value = "";
       } catch { status.value = "Could not reach the server. Try again."; }
       finally { busy.value = false; }
     }
@@ -509,7 +679,7 @@ createApp({
         if ("error" in result) { status.value = messageFor(result.error); return; }
         callUrl.value = "";
         if (fair.value) await loadFair(fair.value.fair, true);
-        status.value = newCallMode.value === "INVITE_ONLY" ? "Invite-only call and queue opened." : "Call opened at this booth.";
+        status.value = "";
       } catch { status.value = "Could not reach the server. Try again."; }
       finally { busy.value = false; }
     }
@@ -520,7 +690,7 @@ createApp({
         const result = await client.calls["resume-invite"]({ booth });
         if ("error" in result) { status.value = messageFor(result.error); return; }
         if (fair.value) await loadFair(fair.value.fair, true);
-        status.value = "Invite-only call and queue resumed with the same meeting link.";
+        status.value = "";
       } catch { status.value = "Could not reach the server. Try again."; }
       finally { busy.value = false; }
     }
@@ -542,7 +712,7 @@ createApp({
         modeUrl.value = "";
         joinLink.value = "";
         if (fair.value) await loadFair(fair.value.fair, true);
-        status.value = mode === "INVITE_ONLY" ? "Invite-only queue opened." : "Open group call ready. Waiting requests were cleared.";
+        status.value = "";
       } catch { status.value = "Could not reach the server. Try again."; }
       finally { busy.value = false; }
     }
@@ -577,7 +747,7 @@ createApp({
           return;
         }
         await refreshQueues();
-        status.value = "You are waiting for an invitation. You can keep exploring.";
+        status.value = "";
       } catch { status.value = "Could not reach the server. Try again."; }
       finally { busy.value = false; }
     }
@@ -595,25 +765,39 @@ createApp({
         }
         myQueues[booth] = null;
         await refreshQueues();
-        status.value = "You left the queue.";
+        status.value = "";
       } catch { status.value = "Could not reach the server. Try again."; }
       finally { busy.value = false; }
     }
 
     async function claimInvitation(booth: string) {
+      const meetingTab = window.open("about:blank", "_blank");
+      if (meetingTab) meetingTab.opener = null;
       busy.value = true;
+      callError.value = null;
       joinLink.value = "";
       try {
         const result = account.value
           ? await client.calls["claim-invitation"]({ booth })
           : await client.calls["guest-claim-invitation"]({ code: fairCode.value, booth, token: guestToken });
-        if ("error" in result) { status.value = "That invitation is no longer available. Check the queue status."; await refreshQueues(); return; }
-        joinLink.value = result.joinUrl;
+        if ("error" in result) {
+          meetingTab?.close();
+          callError.value = { booth, message: "That invitation is no longer available. Check the queue status." };
+          await refreshQueues();
+          return;
+        }
         const call = fair.value?.booths.find((candidate) => candidate.booth === booth)?.calls[0];
         joinedCall.value = call?.call ?? "";
         joinedMode.value = call?.mode ?? "";
-        status.value = "Meeting link ready. Open it below.";
-      } catch { status.value = "Could not reach the server. Try again."; }
+        if (meetingTab && !meetingTab.closed) meetingTab.location.replace(result.joinUrl);
+        else {
+          joinLink.value = result.joinUrl;
+          callError.value = { booth, message: "Your browser blocked the new tab. Use Open video call below." };
+        }
+      } catch {
+        meetingTab?.close();
+        callError.value = { booth, message: "Could not open the video call. Try again." };
+      }
       finally { busy.value = false; }
     }
 
@@ -627,7 +811,7 @@ createApp({
           return;
         }
         if (fair.value) await loadFair(fair.value.fair, true);
-        status.value = accepting ? "Visitors can request a turn." : "New requests are closed; existing visitors remain in the queue.";
+        status.value = "";
       } catch { status.value = "Could not reach the server. Try again."; }
       finally { busy.value = false; }
     }
@@ -642,7 +826,7 @@ createApp({
           return;
         }
         await refreshQueues();
-        status.value = "Visitor removed from the queue.";
+        status.value = "";
       } catch { status.value = "Could not reach the server. Try again."; }
       finally { busy.value = false; }
     }
@@ -660,7 +844,7 @@ createApp({
           }
           invited++;
         }
-        if (invited) status.value = `${invited} ${invited === 1 ? "visitor" : "visitors"} invited for two minutes.`;
+        if (invited) status.value = "";
         await refreshQueues();
       } catch { status.value = "Could not reach the server. Try again."; }
       finally { busy.value = false; }
@@ -668,21 +852,34 @@ createApp({
 
     async function joinCall(booth: string) {
       if (!insideSelectedBooth.value) {
-        status.value = "Move into this booth to get its call link.";
+        callError.value = { booth, message: "Move into this booth to open its video call." };
         return;
       }
+      const meetingTab = window.open("about:blank", "_blank");
+      if (meetingTab) meetingTab.opener = null;
       busy.value = true;
+      callError.value = null;
       joinLink.value = "";
       try {
         const result = account.value && joinedFair.value
           ? await client.calls.join({ booth })
           : await client.calls["guest-join"]({ code: fairCode.value, booth, token: guestToken });
-        if ("error" in result) { status.value = messageFor(result.error); return; }
-        joinLink.value = result.joinUrl;
+        if ("error" in result) {
+          meetingTab?.close();
+          callError.value = { booth, message: messageFor(result.error) };
+          return;
+        }
         joinedCall.value = selectedBooth.value?.calls[0]?.call ?? "";
         joinedMode.value = "OPEN_GROUP";
-        status.value = "Call link ready. Open it below.";
-      } catch { status.value = "Could not reach the server. Try again."; }
+        if (meetingTab && !meetingTab.closed) meetingTab.location.replace(result.joinUrl);
+        else {
+          joinLink.value = result.joinUrl;
+          callError.value = { booth, message: "Your browser blocked the new tab. Use Open video call below." };
+        }
+      } catch {
+        meetingTab?.close();
+        callError.value = { booth, message: "Could not open the video call. Try again." };
+      }
       finally { busy.value = false; }
     }
 
@@ -692,52 +889,82 @@ createApp({
         const result = await client.calls.close({ call });
         if ("error" in result) { status.value = messageFor(result.error); return; }
         if (fair.value) await loadFair(fair.value.fair, true);
-        status.value = "Call closed.";
+        status.value = "";
       } catch { status.value = "Could not reach the server. Try again."; }
       finally { busy.value = false; }
     }
 
-    async function moveAvatar(event: KeyboardEvent) {
-      if (!fair.value || event.altKey || event.ctrlKey || event.metaKey) return;
-      const target = event.target;
-      if (target instanceof HTMLElement &&
-          (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName))) return;
-      const steps: Record<string, [number, number]> = {
-        arrowup: [0, -1], w: [0, -1],
-        arrowdown: [0, 1], s: [0, 1],
-        arrowleft: [-1, 0], a: [-1, 0],
-        arrowright: [1, 0], d: [1, 0],
-      };
-      const step = steps[event.key.toLowerCase()];
-      if (!step) return;
-      event.preventDefault();
+    async function moveOneTile(step: [number, number]) {
       const x = avatar.x + step[0];
       const y = avatar.y + step[1];
-      if (x < 0 || x > 9 || y < 0 || y > 9) return;
-      if (!joinedFair.value || moving.value) return;
+      if (x < 0 || x > 9 || y < 0 || y > 9) return true;
+      if (blockedCells.value.has(`${x},${y}`)) return true;
+      if (!fair.value || !joinedFair.value || moving.value) return false;
+      const fairId = fair.value.fair;
+      const start = { x: avatar.x, y: avatar.y };
       moving.value = true;
+      if (ownPerson.value) markWalking(ownPerson.value, step[0], step[1]);
+      avatar.x = x;
+      avatar.y = y;
       try {
         const destination = { x, y };
         const result = account.value
           ? await client.fairs.move({ destination })
           : await client.fairs["guest-move"]({ token: guestToken, destination });
-        if ("error" in result) { status.value = messageFor(result.error); return; }
-        await refreshPresence(fair.value.fair);
-        await loadFair(fair.value.fair, true);
-      } catch { status.value = "Could not reach the server. Try again."; return; }
+        if ("error" in result) { avatar.x = start.x; avatar.y = start.y; status.value = messageFor(result.error); return false; }
+        if (fair.value?.fair !== fairId) return false;
+        await refreshPresence(fairId);
+        await loadFair(fairId, true);
+      } catch { avatar.x = start.x; avatar.y = start.y; status.value = "Could not reach the server. Try again."; return false; }
       finally { moving.value = false; }
-      avatar.x = x;
-      avatar.y = y;
-      const booth = fair.value.booths.find(({ footprint }) =>
+      const booth = fair.value?.booths.find(({ footprint }) =>
         x >= footprint.x && x < footprint.x + footprint.width &&
         y >= footprint.y && y < footprint.y + footprint.height,
       );
-      selectedBoothId.value = booth?.booth ?? null;
+      if (booth) selectBooth(booth.booth, false);
+      return true;
+    }
+
+    async function runMovementLoop() {
+      if (movementLoopActive) return;
+      movementLoopActive = true;
+      try {
+        while (heldMovementKeys.size && fair.value && !accountPanelOpen.value) {
+          const step = [...heldMovementKeys.values()].at(-1)!;
+          const started = performance.now();
+          if (!await moveOneTile(step)) { heldMovementKeys.clear(); break; }
+          const remaining = walkStepMs - (performance.now() - started);
+          if (heldMovementKeys.size && remaining > 0) {
+            await new Promise<void>((resolve) => setTimeout(resolve, remaining));
+          }
+        }
+      } finally {
+        movementLoopActive = false;
+      }
+    }
+
+    function handleMovementKeyDown(event: KeyboardEvent) {
+      if (!fair.value || accountPanelOpen.value || event.altKey || event.ctrlKey || event.metaKey) return;
+      const target = event.target;
+      if (target instanceof HTMLElement &&
+          (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName))) return;
+      const key = event.key.toLowerCase();
+      const step = movementSteps[key];
+      if (!step) return;
+      event.preventDefault();
+      if (!heldMovementKeys.has(key)) heldMovementKeys.set(key, step);
+      void runMovementLoop();
+    }
+
+    function handleMovementKeyUp(event: KeyboardEvent) {
+      heldMovementKeys.delete(event.key.toLowerCase());
     }
 
     onMounted(async () => {
       countdownTimer = setInterval(() => { nowMs.value = Date.now(); }, 1000);
-      window.addEventListener("keydown", moveAvatar);
+      window.addEventListener("keydown", handleMovementKeyDown);
+      window.addEventListener("keyup", handleMovementKeyUp);
+      window.addEventListener("blur", clearHeldMovement);
       const current = await client.auth.current({}).catch(() => ({ error: "UNAVAILABLE" as const }));
       if (!("error" in current)) {
         account.value = current.account;
@@ -758,23 +985,29 @@ createApp({
       }, 4000);
     });
     onUnmounted(() => {
-      window.removeEventListener("keydown", moveAvatar);
+      window.removeEventListener("keydown", handleMovementKeyDown);
+      window.removeEventListener("keyup", handleMovementKeyUp);
+      window.removeEventListener("blur", clearHeldMovement);
+      clearHeldMovement();
       if (refreshTimer) clearInterval(refreshTimer);
       if (countdownTimer) clearInterval(countdownTimer);
+      for (const timer of walkTimers.values()) clearTimeout(timer);
     });
 
     return {
-      mode, username, password, account, fairName, listNewFair, fair, fairCode,
-      publicFairs, publicQuery, visiblePublicFairs, loadPublicFairs, setFairListing, openFair,
-      boothQuery, visibleBooths, mapCells, openFairByCode,
-      selectedBoothId, selectedBooth, avatar, boothName,
+      mode, landingView, accountPanelOpen, accountPanelIntent, openAccountPanel,
+      username, password, account, fairName, listNewFair, fair, fairCode,
+      publicFairs, publicQuery, visiblePublicFairs, loadPublicFairs, setFairListing, openFair, leaveFairView,
+      boothQuery, visibleBooths, boothAreas, hallPlants, hitboxCells, showHitboxes,
+      mapAvatars, mapViewport, mapStyle, chooseMapStyle, openFairByCode,
+      selectedBoothId, selectedBooth, boothPanelExpanded, directoryOpen, selectBooth, avatar, boothName,
       boothDescription, boothMeetingUrl, area, drafts, status, busy, canManage, submitAuth,
       signOut, createFair, createBooth, editBooth, setBoothMeetingLink, addRepresentative,
       removeRepresentative,
       joinedFair, people, insideSelectedBooth, representsSelectedBooth,
       callUrl, newCallMode, modeUrl, inviteCount, myQueues, queueRoster, waitingRosterCount,
       selectedCall, selectedQueue, selectedMyRequest, activeRequests, invitationActive, remainingTime,
-      joinLink, joinedCall, joinedMode, validJoinLink, openCall, resumeInviteCall, joinCall, closeCall, changeCallMode,
+      joinLink, joinedCall, joinedMode, validJoinLink, callError, openCall, resumeInviteCall, joinCall, closeCall, changeCallMode,
       joinQueue, leaveQueue, claimInvitation, setQueueAccepting, removeQueueVisitor, inviteNext,
     };
   },

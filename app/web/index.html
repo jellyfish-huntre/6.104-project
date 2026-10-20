@@ -8,136 +8,169 @@
     <script type="module" src="./app.ts"></script>
   </head>
   <body>
-    <main id="app">
-      <h1>Roam</h1>
-      <p>Explore fairs and booths, or create your own fair.</p>
-
-      <section aria-label="Enter a fair">
-        <h2>Enter a fair</h2>
-        <form @submit.prevent="openFairByCode">
-          <label>Fair code
-            <input v-model="fairCode" maxlength="8" autocomplete="off" autocapitalize="characters"
-              placeholder="8-character code" required />
-          </label>
-          <button :disabled="busy">Open fair</button>
-        </form>
-        <div class="public-fairs">
-          <div class="section-heading">
-            <h3>Public fairs</h3>
+    <main id="app" class="app-shell">
+      <section v-if="!fair" class="landing-screen" aria-label="Roam landing screen">
+        <div v-if="landingView === 'enter'" class="entry-card">
+          <div class="brand entry-brand"><span class="brand-mark" aria-hidden="true">↗</span>Roam</div>
+          <p v-if="status && !accountPanelOpen" class="inline-status" role="alert">{{ status }}</p>
+          <form class="entry-form" @submit.prevent="openFairByCode">
+            <label for="fair-code">Fair code</label>
+            <input id="fair-code" v-model="fairCode" maxlength="8" autocomplete="off" autocapitalize="characters"
+              placeholder="Enter a fair code" required />
+            <button class="primary-button" :disabled="busy">Enter the fair <span aria-hidden="true">→</span></button>
+          </form>
+          <div class="or-divider"><span>or</span></div>
+          <button class="secondary-button" type="button" @click="landingView = 'browse'">Browse public fairs</button>
+          <button class="create-link" type="button" @click="openAccountPanel('create')">Create a fair</button>
+        </div>
+        <div v-else class="browse-card">
+          <button class="text-button back-button" type="button" @click="landingView = 'enter'">← Back</button>
+          <div class="eyebrow">Discover</div>
+          <h1>Public fairs</h1>
+          <p v-if="status && !accountPanelOpen" class="inline-status" role="alert">{{ status }}</p>
+          <div class="browse-tools">
+            <label for="public-search">Search fairs</label>
+            <input id="public-search" v-model="publicQuery" type="search" placeholder="Fair name or organizer" />
             <button class="text-button" type="button" @click="loadPublicFairs">Refresh</button>
           </div>
-          <label v-if="publicFairs.length">Search public fairs
-            <input v-model="publicQuery" type="search" placeholder="Fair name or organizer" />
-          </label>
           <p v-if="publicFairs.length === 0" class="hint">No public fairs yet. You can still enter a fair using its code.</p>
           <p v-else-if="visiblePublicFairs.length === 0" class="hint">No public fairs match that search.</p>
           <div v-else class="public-fair-list">
             <article v-for="listedFair in visiblePublicFairs" :key="listedFair.fair" class="public-fair">
-              <div>
-                <h4>{{ listedFair.name }}</h4>
-                <p class="hint">Organized by {{ listedFair.organizer }}</p>
-              </div>
-              <button type="button" @click="openFair(listedFair.fair)">Open fair</button>
+              <div><h2>{{ listedFair.name }}</h2><p>Organized by {{ listedFair.organizer }}</p></div>
+              <button class="secondary-button" type="button" @click="openFair(listedFair.fair)">Enter fair →</button>
             </article>
           </div>
         </div>
       </section>
 
-      <p role="status" aria-live="polite">{{ status }}</p>
 
-      <section v-if="!account" aria-label="Account">
-        <h2>{{ mode === 'register' ? 'Create an account' : 'Sign in' }}</h2>
-        <form @submit.prevent="submitAuth">
-          <label>Username
-            <input v-model="username" autocomplete="username" required minlength="3" maxlength="32" />
-          </label>
-          <p v-if="mode === 'register'" class="hint">Use 3–32 letters, numbers, underscores, or hyphens. No spaces or email addresses.</p>
-          <label>Password
-            <input v-model="password" type="password" :autocomplete="mode === 'register' ? 'new-password' : 'current-password'" required minlength="8" maxlength="128" />
-          </label>
-          <p v-if="mode === 'register'" class="hint">Use 8–128 characters.</p>
-          <button :disabled="busy">{{ mode === 'register' ? 'Register' : 'Sign in' }}</button>
-        </form>
-        <button class="text-button" @click="mode = mode === 'register' ? 'sign-in' : 'register'">
-          {{ mode === 'register' ? 'Already have an account? Sign in' : 'Need an account? Register' }}
-        </button>
-      </section>
-
-      <section v-else aria-label="Current account">
-        <p>Signed in as <strong>{{ account }}</strong></p>
-        <button @click="signOut" :disabled="busy">Sign out</button>
-        <h2>Create a fair</h2>
-        <form @submit.prevent="createFair">
-          <label>Fair name
-            <input v-model="fairName" placeholder="Fall Club Fair" required maxlength="100" />
-          </label>
-          <label class="checkbox-label"><input v-model="listNewFair" type="checkbox" /> List this fair publicly</label>
-          <p class="hint">Unlisted fairs can still be opened with their code or direct link.</p>
-          <button :disabled="busy">Create fair</button>
-        </form>
-      </section>
-
-      <section v-if="fair" id="fair-details" aria-label="Fair details">
-        <h2>{{ fair.name }}</h2>
-        <p>Organized by {{ fair.organizer }}</p>
-        <p>Fair code: <strong class="fair-code">{{ fair.code }}</strong></p>
-        <p v-if="canManage" class="hint">Share this code with students so they can open the fair.</p>
-        <p>Visibility: <strong>{{ fair.listed ? 'Publicly listed' : 'Unlisted' }}</strong></p>
-        <button v-if="canManage" type="button" :disabled="busy" @click="setFairListing(!fair.listed)">
-          {{ fair.listed ? 'Remove from public fairs' : 'List in public fairs' }}
-        </button>
-
-        <h3>Explore the fair</h3>
-        <p class="hint">Move your triangle with the arrow keys or WASD. Other people appear as triangles in their own colors; yours has a white outline. Select a colored booth cell to read about it. Open group calls are available inside a booth; for invite-only calls, request a turn and keep exploring.</p>
-        <p class="hint" aria-live="polite">Your avatar is at ({{ avatar.x }}, {{ avatar.y }}).</p>
-        <p class="hint">{{ joinedFair ? 'You are in the fair.' : 'Entering the fair…' }} {{ people.length }} {{ people.length === 1 ? 'person' : 'people' }} here.</p>
-        <section v-if="activeRequests.length" class="request-summary" aria-label="Your waiting requests">
-          <h3>Your waiting requests</h3>
-          <div v-for="item in activeRequests" :key="item.booth.booth" class="request-row">
-            <strong>{{ item.booth.name }}</strong>
-            <span v-if="item.request.invitedUntil">{{ invitationActive(item.request.invitedUntil) ? 'Invitation expires in ' + remainingTime(item.request.invitedUntil) : 'Invitation expired' }}</span>
-            <span v-else>{{ item.booth.queues[0]?.pausedUntil ? 'Queue paused' : 'Waiting for an invitation' }}</span>
-            <button v-if="item.request.invitedUntil && item.booth.calls[0]?.mode === 'INVITE_ONLY'" type="button" :disabled="busy || !invitationActive(item.request.invitedUntil)" @click="claimInvitation(item.booth.booth)">Get invited link</button>
-            <button type="button" class="text-button" :disabled="busy" @click="leaveQueue(item.booth.booth)">Leave queue</button>
-          </div>
+      <div v-if="accountPanelOpen" class="modal-backdrop" @click.self="accountPanelOpen = false">
+        <section class="account-panel" role="dialog" aria-modal="true" :aria-label="accountPanelIntent === 'create' ? 'Create a fair' : 'Sign in'">
+          <button type="button" class="close-button" aria-label="Close account panel" @click="accountPanelOpen = false">×</button>
+          <p v-if="status" class="inline-status" role="alert">{{ status }}</p>
+          <template v-if="!account">
+            <div class="eyebrow">{{ accountPanelIntent === 'create' ? 'Host on Roam' : 'Your account' }}</div>
+            <h2>{{ mode === 'register' ? 'Create an account' : 'Sign in' }}</h2>
+            <form @submit.prevent="submitAuth">
+              <label>Username <input v-model="username" autocomplete="username" required minlength="3" maxlength="32" /></label>
+              <p v-if="mode === 'register'" class="hint">Use 3–32 letters, numbers, underscores, or hyphens.</p>
+              <label>Password <input v-model="password" type="password" :autocomplete="mode === 'register' ? 'new-password' : 'current-password'" required minlength="8" maxlength="128" /></label>
+              <button class="primary-button" :disabled="busy">{{ mode === 'register' ? 'Register' : 'Sign in' }}</button>
+            </form>
+            <button class="text-button" type="button" @click="mode = mode === 'register' ? 'sign-in' : 'register'">
+              {{ mode === 'register' ? 'Already have an account? Sign in' : 'Need an account? Register' }}
+            </button>
+          </template>
+          <template v-else>
+            <div class="eyebrow">Create a fair</div>
+            <h2>Set up your space</h2>
+            <form @submit.prevent="createFair">
+              <label>Fair name <input v-model="fairName" placeholder="Fall Club Fair" required maxlength="100" /></label>
+              <label class="checkbox-label"><input v-model="listNewFair" type="checkbox" /> List this fair publicly</label>
+              <p class="hint">Unlisted fairs can still be opened with their code or direct link.</p>
+              <button class="primary-button" :disabled="busy">Create fair</button>
+            </form>
+          </template>
         </section>
-        <p v-if="validJoinLink"><a :href="joinLink" target="_blank" rel="noopener noreferrer">Open video call</a></p>
-        <div class="discovery-layout" :class="{ 'has-details': selectedBooth }">
-          <div class="fair-map" aria-label="Fair booth map">
-            <template v-for="cell in mapCells" :key="`${cell.x},${cell.y}`">
-              <button v-if="cell.booth" class="map-cell booth-cell"
-                :class="{ selected: selectedBoothId === cell.booth.booth }"
-                :style="{ '--booth-hue': cell.hue }"
-                :aria-label="`${cell.booth.name} at (${cell.x}, ${cell.y})${cell.avatarLabels ? ': ' + cell.avatarLabels : ''}`"
-                @click="selectedBoothId = cell.booth.booth">
-                <span v-if="cell.showName">{{ cell.booth.name }}</span>
-                <span v-if="cell.avatars.length" class="avatar-stack" aria-hidden="true">
-                  <span v-for="person in cell.avatars" :key="person.person" class="avatar"
-                    :class="{ own: person.own }" :style="{ '--avatar-color': person.color }" :title="person.label"></span>
-                  <span v-if="cell.extraAvatars" class="avatar-overflow">+{{ cell.extraAvatars }}</span>
-                </span>
-              </button>
-              <div v-else class="map-cell empty-cell" :class="{ entrance: cell.x === 0 && cell.y === 0 }"
-                :aria-label="`${cell.x === 0 && cell.y === 0 ? 'Entrance' : 'Empty cell'} at (${cell.x}, ${cell.y})${cell.avatarLabels ? ': ' + cell.avatarLabels : ''}`">
-                {{ cell.x === 0 && cell.y === 0 ? 'Start' : '' }}
-                <span v-if="cell.avatars.length" class="avatar-stack" aria-hidden="true">
-                  <span v-for="person in cell.avatars" :key="person.person" class="avatar"
-                    :class="{ own: person.own }" :style="{ '--avatar-color': person.color }" :title="person.label"></span>
-                  <span v-if="cell.extraAvatars" class="avatar-overflow">+{{ cell.extraAvatars }}</span>
-                </span>
-              </div>
-            </template>
+      </div>
+
+      <section v-if="fair" id="fair-details" class="fair-screen" :class="[mapStyle === 'kenney' ? 'map-style-kenney' : 'map-style-pixel', { 'directory-is-open': directoryOpen }]" aria-label="Fair details">
+        <header class="fair-topbar">
+          <div class="fair-title-group"><div class="brand"><span class="brand-mark" aria-hidden="true">↗</span>Roam</div><h1>{{ fair.name }}</h1></div>
+          <div class="topbar-actions">
+            <span class="topbar-presence">{{ people.length }} {{ people.length === 1 ? 'person' : 'people' }} here</span>
+            <span class="topbar-code">{{ fair.code }}</span>
+            <span v-if="account" class="signed-in">{{ account }}</span>
+            <button v-if="!account" class="topbar-button" type="button" @click="openAccountPanel('sign-in')">Sign in</button>
+            <button v-else class="topbar-button" type="button" :disabled="busy" @click="signOut">Sign out</button>
+            <button class="topbar-button" type="button" :disabled="busy" @click="leaveFairView">Leave fair</button>
           </div>
-          <article v-if="selectedBooth" aria-label="Selected booth">
-            <h3>{{ selectedBooth.name }}</h3>
-            <p>{{ selectedBooth.description }}</p>
-            <p>Representatives:
+        </header>
+        <div class="fair-main">
+          <p class="sr-only" aria-live="polite">Your avatar is at ({{ avatar.x }}, {{ avatar.y }}). {{ joinedFair ? 'You are in the fair.' : 'Entering the fair.' }}</p>
+          <div class="map-style-toggle" role="group" aria-label="Map view controls">
+            <button type="button" class="map-style-option" :aria-pressed="mapStyle === 'pixel'" @click="chooseMapStyle('pixel')">Pixel Fair</button>
+            <button type="button" class="map-style-option" :aria-pressed="mapStyle === 'kenney'" @click="chooseMapStyle('kenney')">Kenney</button>
+            <button type="button" class="map-style-option map-hitbox-option" :aria-pressed="showHitboxes" @click="showHitboxes = !showHitboxes">Hitboxes</button>
+          </div>
+          <section v-if="activeRequests.length" class="request-summary" aria-label="Your waiting requests">
+            <div class="eyebrow">Your request</div>
+            <div v-for="item in activeRequests" :key="item.booth.booth" class="request-row">
+              <strong>{{ item.booth.name }}</strong>
+              <span v-if="item.request.invitedUntil">{{ invitationActive(item.request.invitedUntil) ? 'Invitation expires in ' + remainingTime(item.request.invitedUntil) : 'Invitation expired' }}</span>
+              <span v-else>{{ item.booth.queues[0]?.pausedUntil ? 'Queue paused' : 'Waiting for an invitation' }}</span>
+              <button v-if="item.request.invitedUntil && item.booth.calls[0]?.mode === 'INVITE_ONLY'" type="button" :disabled="busy || !invitationActive(item.request.invitedUntil)" @click="claimInvitation(item.booth.booth)">Open video call</button>
+              <button type="button" class="text-button" :disabled="busy" @click="leaveQueue(item.booth.booth)">Leave queue</button>
+              <span v-if="callError?.booth === item.booth.booth" class="inline-error" role="alert">{{ callError.message }}</span>
+            </div>
+          </section>
+          <p v-if="validJoinLink" class="call-link"><a :href="joinLink" target="_blank" rel="noopener noreferrer">Open video call ↗</a></p>
+          <div class="discovery-layout">
+            <section class="map-panel" aria-label="Fair map">
+              <div ref="mapViewport" class="map-scroll"><div class="fair-map" aria-label="Top-down indoor fair hall">
+                <div class="hall-floor" aria-hidden="true"><span class="hall-aisle horizontal"></span><span class="hall-aisle vertical"></span><span v-for="plant in hallPlants" :key="`${plant.x},${plant.y}`" class="hall-plant" :style="plant.style"></span><span class="hall-welcome">WELCOME</span></div>
+                <button v-for="boothArea in boothAreas" :key="boothArea.booth" type="button" class="booth-area"
+                  :class="{ selected: selectedBoothId === boothArea.booth, compact: !boothArea.roomy, live: boothArea.calls.length }"
+                  :style="boothArea.style" :aria-label="`Select ${boothArea.name} booth`" :aria-pressed="selectedBoothId === boothArea.booth"
+                  @click="selectBooth(boothArea.booth)">
+                  <span class="area-name">{{ boothArea.name }}</span>
+                  <span v-if="boothArea.roomy" class="booth-table" aria-hidden="true"></span>
+                  <span v-if="boothArea.roomy" class="booth-chair chair-left" aria-hidden="true"></span>
+                  <span v-if="boothArea.roomy" class="booth-chair chair-right" aria-hidden="true"></span>
+                  <span v-if="boothArea.calls.length" class="live-dot" aria-hidden="true"></span>
+                </button>
+                <div v-for="person in mapAvatars" :key="person.person" class="map-avatar"
+                  :class="[person.own ? 'own' : '', `facing-${person.facing}`, { walking: person.walking, 'top-edge': person.y === 0 }]"
+                  :style="person.style" :aria-label="`${person.label} at (${person.x}, ${person.y})`">
+                  <span v-if="person.own" class="avatar-name">You</span>
+                  <span class="avatar-shadow" aria-hidden="true"></span>
+                  <span class="avatar-leg leg-left" aria-hidden="true"></span><span class="avatar-leg leg-right" aria-hidden="true"></span>
+                  <span class="avatar-arm arm-left" aria-hidden="true"></span><span class="avatar-arm arm-right" aria-hidden="true"></span>
+                  <span class="avatar-body" aria-hidden="true"></span><span class="avatar-head" aria-hidden="true"></span><span class="avatar-hair" aria-hidden="true"></span>
+                </div>
+                <div v-if="showHitboxes" class="map-hitboxes" aria-hidden="true">
+                  <span v-for="cell in hitboxCells" :key="cell.key" class="hitbox-cell" :style="cell.style"></span>
+                </div>
+                <span class="entrance-marker" aria-hidden="true">Entrance</span>
+              </div></div>
+            </section>
+          <article v-if="selectedBooth" class="booth-detail" :class="{ 'is-collapsed': !boothPanelExpanded }" aria-label="Selected booth">
+            <div class="booth-panel-top"><div><div class="eyebrow">Selected booth</div><h3>{{ selectedBooth.name }}</h3></div>
+              <button type="button" class="panel-toggle" :aria-label="boothPanelExpanded ? 'Minimize booth details' : 'Expand booth details'" :aria-expanded="boothPanelExpanded" @click="boothPanelExpanded = !boothPanelExpanded">{{ boothPanelExpanded ? '−' : '+' }}</button>
+            </div>
+            <div v-show="boothPanelExpanded" class="booth-panel-body">
+            <p v-if="status && !directoryOpen && !accountPanelOpen" class="inline-status" role="alert">{{ status }}</p>
+            <p class="booth-description">{{ selectedBooth.description }}</p>
+            <p class="representatives-line">Representatives:
               <span v-if="selectedBooth.representatives.length === 0">none assigned</span>
               <span v-else>{{ selectedBooth.representatives.map((rep) => rep.representative).join(', ') }}</span>
             </p>
-            <p v-if="selectedCall">{{ selectedCall.mode === 'INVITE_ONLY' ? 'Invite-only call' : 'Open group call' }} hosted by {{ selectedCall.host }}</p>
-            <p v-else class="hint">No live call at this booth.</p>
-            <p v-if="selectedQueue">{{ selectedQueue.waiting }} {{ selectedQueue.waiting === 1 ? 'visitor' : 'visitors' }} waiting. {{ selectedQueue.pausedUntil ? 'Queue paused while a representative returns.' : selectedQueue.accepting ? 'New requests are open.' : 'New requests are closed.' }}</p>
+            <div v-if="!representsSelectedBooth && (selectedCall || selectedQueue)" class="eyebrow next-action-label">Your next step</div>
+            <div v-if="selectedQueue" class="queue-controls">
+              <p v-if="selectedMyRequest?.invitedUntil">{{ invitationActive(selectedMyRequest.invitedUntil) ? 'Your invitation expires in ' + remainingTime(selectedMyRequest.invitedUntil) : 'Your invitation expired' }}.</p>
+              <p v-else-if="selectedMyRequest">You are waiting. You can explore other booths.</p>
+              <button v-if="selectedMyRequest?.invitedUntil && selectedCall?.mode === 'INVITE_ONLY'" type="button" :disabled="busy || !invitationActive(selectedMyRequest.invitedUntil)" @click="claimInvitation(selectedBooth.booth)">Open video call</button>
+              <p v-if="callError?.booth === selectedBooth.booth" class="inline-error" role="alert">{{ callError.message }}</p>
+              <button v-if="selectedMyRequest" type="button" class="text-button" :disabled="busy" @click="leaveQueue(selectedBooth.booth)">Leave queue</button>
+              <button v-else-if="!representsSelectedBooth && selectedQueue.accepting && !selectedQueue.pausedUntil && selectedCall?.mode === 'INVITE_ONLY'" type="button" :disabled="busy" @click="joinQueue(selectedBooth.booth)">Request a turn</button>
+              <p v-else-if="!representsSelectedBooth && !selectedQueue.pausedUntil" class="hint">This booth is not taking new requests.</p>
+              <div v-if="representsSelectedBooth && insideSelectedBooth && selectedCall?.mode === 'INVITE_ONLY'" class="host-queue-controls">
+                <div class="invite-controls">
+                  <label>Invite next
+                    <select v-model.number="inviteCount"><option :value="1">1 visitor</option><option :value="2">2 visitors</option><option :value="3">3 visitors</option></select>
+                  </label>
+                  <button type="button" :disabled="busy || !waitingRosterCount" @click="inviteNext(selectedBooth.booth)">Send invitation</button>
+                </div>
+                <p v-if="!waitingRosterCount" class="hint">No visitors are waiting.</p>
+                <button type="button" :disabled="busy" @click="setQueueAccepting(selectedBooth.booth, !selectedQueue.accepting)">{{ selectedQueue.accepting ? 'Stop new requests' : 'Allow new requests' }}</button>
+                <div v-for="visitor in queueRoster" :key="visitor.person" class="request-row">
+                  <span class="queue-person">{{ visitor.person }}</span>
+                  <span>{{ visitor.invitedUntil ? 'Invited' : 'Waiting' }}</span>
+                  <button type="button" class="text-button" :disabled="busy" @click="removeQueueVisitor(selectedBooth.booth, visitor.person)">Remove</button>
+                </div>
+              </div>
+            </div>
             <div v-if="representsSelectedBooth && insideSelectedBooth && !selectedBooth.calls.length && selectedQueue?.pausedUntil">
               <button type="button" :disabled="busy" @click="resumeInviteCall(selectedBooth.booth)">Resume invite-only call</button>
               <p class="hint">Use the same meeting link and continue the waiting queue.</p>
@@ -174,37 +207,25 @@
             <button v-if="selectedCall && selectedCall.host === account"
               @click="closeCall(selectedCall.call)" :disabled="busy">{{ selectedCall.mode === 'INVITE_ONLY' ? 'Close call and queue' : 'Close call' }}</button>
             <button v-if="selectedCall?.mode === 'OPEN_GROUP' && insideSelectedBooth"
-              @click="joinCall(selectedBooth.booth)" :disabled="busy">Get call link</button>
+              @click="joinCall(selectedBooth.booth)" :disabled="busy">Open video call</button>
+            <p v-if="selectedCall?.mode === 'OPEN_GROUP' && callError?.booth === selectedBooth.booth" class="inline-error" role="alert">{{ callError.message }}</p>
             <p v-if="selectedCall?.mode === 'OPEN_GROUP' && !insideSelectedBooth" class="hint">Move into this booth to get its call link.</p>
             <p v-if="representsSelectedBooth && !insideSelectedBooth" class="hint">Move into this booth to open its call.</p>
-            <div v-if="selectedQueue" class="queue-controls">
-              <p v-if="selectedMyRequest?.invitedUntil">{{ invitationActive(selectedMyRequest.invitedUntil) ? 'Your invitation expires in ' + remainingTime(selectedMyRequest.invitedUntil) : 'Your invitation expired' }}.</p>
-              <p v-else-if="selectedMyRequest">You are waiting. You can explore other booths.</p>
-              <button v-if="selectedMyRequest?.invitedUntil && selectedCall?.mode === 'INVITE_ONLY'" type="button" :disabled="busy || !invitationActive(selectedMyRequest.invitedUntil)" @click="claimInvitation(selectedBooth.booth)">Get invited link</button>
-              <button v-if="selectedMyRequest" type="button" class="text-button" :disabled="busy" @click="leaveQueue(selectedBooth.booth)">Leave queue</button>
-              <p v-else-if="representsSelectedBooth" class="hint">You represent this booth.</p>
-              <button v-else-if="selectedQueue.accepting && !selectedQueue.pausedUntil && selectedCall?.mode === 'INVITE_ONLY'" type="button" :disabled="busy" @click="joinQueue(selectedBooth.booth)">Request a turn</button>
-              <p v-else-if="!selectedQueue.pausedUntil" class="hint">This booth is not taking new requests.</p>
-              <div v-if="representsSelectedBooth && insideSelectedBooth && selectedCall?.mode === 'INVITE_ONLY'" class="host-queue-controls">
-                <button type="button" :disabled="busy" @click="setQueueAccepting(selectedBooth.booth, !selectedQueue.accepting)">{{ selectedQueue.accepting ? 'Stop new requests' : 'Allow new requests' }}</button>
-                <div class="invite-controls">
-                  <label>Invite next
-                    <select v-model.number="inviteCount"><option :value="1">1 visitor</option><option :value="2">2 visitors</option><option :value="3">3 visitors</option></select>
-                  </label>
-                  <button type="button" :disabled="busy || !waitingRosterCount" @click="inviteNext(selectedBooth.booth)">Send invitation</button>
-                </div>
-                <p v-if="!waitingRosterCount" class="hint">No visitors are waiting.</p>
-                <div v-for="visitor in queueRoster" :key="visitor.person" class="request-row">
-                  <span>{{ visitor.person }}</span>
-                  <span>{{ visitor.invitedUntil ? 'Invited' : 'Waiting' }}</span>
-                  <button type="button" class="text-button" :disabled="busy" @click="removeQueueVisitor(selectedBooth.booth, visitor.person)">Remove</button>
-                </div>
-              </div>
             </div>
           </article>
         </div>
 
-        <section v-if="canManage" aria-label="Add booth">
+        <button class="directory-fab" type="button" :aria-label="directoryOpen ? 'Close booth directory' : 'Open booth directory'" :aria-expanded="directoryOpen" @click="directoryOpen = !directoryOpen"><span aria-hidden="true">☷</span></button>
+        <div v-if="directoryOpen" class="directory-drawer" aria-label="Booth directory">
+          <header class="drawer-header"><div><div class="eyebrow">Explore</div><h2>Booth directory</h2></div><button type="button" class="drawer-close" aria-label="Close booth directory" @click="directoryOpen = false">×</button></header>
+          <p v-if="status && !accountPanelOpen" class="inline-status" role="alert">{{ status }}</p>
+        <details v-if="canManage" class="management-card" aria-label="Organizer tools">
+          <summary>Organizer tools</summary>
+          <div class="management-heading"><div><div class="eyebrow">Organizer tools</div><h3>Manage this fair</h3></div><span>Share code {{ fair.code }}</span></div>
+          <p>Visibility: <strong>{{ fair.listed ? 'Publicly listed' : 'Unlisted' }}</strong></p>
+          <button type="button" :disabled="busy" @click="setFairListing(!fair.listed)">
+            {{ fair.listed ? 'Remove from public fairs' : 'List in public fairs' }}
+          </button>
           <h3>Add a booth</h3>
           <form @submit.prevent="createBooth">
             <label>Booth name <input v-model="boothName" required maxlength="100" /></label>
@@ -220,9 +241,9 @@
             <p class="hint">The fair is a 10 × 10 grid. Booths cannot overlap or cover (0, 0).</p>
             <button :disabled="busy">Add booth</button>
           </form>
-        </section>
+        </details>
 
-        <h3>Booths</h3>
+        <section class="directory-card" aria-label="Booth directory">
         <label>Search booth names, descriptions, or representatives
           <input v-model="boothQuery" type="search" placeholder="Search booths" />
         </label>
@@ -232,7 +253,7 @@
           <h4>{{ booth.name }}</h4>
           <p>{{ booth.description }}</p>
           <p class="hint">At ({{ booth.footprint.x }}, {{ booth.footprint.y }}), {{ booth.footprint.width }} × {{ booth.footprint.height }} cells</p>
-          <button class="text-button" @click="selectedBoothId = booth.booth">Highlight on map</button>
+          <button class="text-button" @click="selectBooth(booth.booth)">Show on map</button>
           <p>Representatives:
             <span v-if="booth.representatives.length === 0">none assigned</span>
             <span v-for="rep in booth.representatives" :key="rep.representative" class="representative">
@@ -263,6 +284,9 @@
             <p class="hint">Representatives need their own registered accounts.</p>
           </div>
         </article>
+        </section>
+        </div>
+        </div>
       </section>
     </main>
   </body>

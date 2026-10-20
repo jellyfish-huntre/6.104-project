@@ -1,0 +1,57 @@
+bun test v1.4.2 (744846f84)
+
+src/concepts/Navigating.test.ts:
+(pass) tracks a person and permits only adjacent in-bounds moves [22.93ms]
+(pass) shares guest positions without exposing the guest token [17.27ms]
+
+src/concepts/Sessioning.test.ts:
+(pass) resolves a session after creating a new concept instance [10.04ms]
+(pass) rejects invented sessions [1.68ms]
+(pass) expires a session without letting it be reused or ended [2.17ms]
+
+src/concepts/Reserving.test.ts:
+(pass) reserves a resource for one person and releases it on cancellation [9.33ms]
+(pass) a refused duplicate reservation leaves the original owner unchanged [2.28ms]
+
+src/concepts/Calling.test.ts:
+(pass) opens one call per booth and host, shares its URL only through join, and closes it [16.06ms]
+(pass) changes one booth call to invite-only with a fresh link [6.52ms]
+(pass) retains an invite-only link when the host leaves and resumes it for an assigned host [14.85ms]
+(pass) does not replace a suspended call when another host is busy [10.31ms]
+
+src/concepts/Exhibiting.test.ts:
+(pass) creates a multi-cell booth and finds it by position [2.97ms]
+(pass) refuses overlapping or malformed areas but allows another fair [2.49ms]
+(pass) only the recorded organizer can edit or assign representatives [1.67ms]
+(pass) adds and removes a representative once [3.99ms]
+(pass) saves a meeting link for the organizer and assigned representative only [6.17ms]
+(pass) adds organizers to older booths once without restoring a removed assignment [7.38ms]
+
+src/concepts/Queueing.test.ts:
+(pass) offers waiting visitors in order and prevents duplicate requests [28.57ms]
+(pass) closing a queue clears requests and prevents stale invitations [14.08ms]
+(pass) two simultaneous invitations select different waiting visitors [8.99ms]
+(pass) leaving and rejoining gives a visitor a new place in line [9.50ms]
+(pass) stops new requests but preserves and manages the existing queue [8.79ms]
+(pass) expires invitations and closes a paused queue after its grace period [15.50ms]
+
+src/concepts/Hosting.test.ts:
+(pass) creates and retrieves a fair [7.26ms]
+(pass) uses IDs rather than names to distinguish fairs [1.76ms]
+(pass) uses distinct codes for fairs with duplicate names [3.17ms]
+(pass) assigns codes to fairs created before codes existed [3.05ms]
+(pass) only the organizer can edit a fair [3.84ms]
+(pass) refuses missing fairs and returns no row for lookup [0.75ms]
+(pass) refuses blank names without changing state [0.82ms]
+(pass) only the organizer can list and unlist a fair [3.42ms]
+
+src/concepts/Authenticating.test.ts:
+(pass) registers and authenticates a persistent account [196.96ms]
+(pass) rejects duplicate names and incorrect credentials [166.65ms]
+(pass) validates new credentials [1.35ms]
+(pass) refuses to verify an account that was not registered [1.48ms]
+
+ 35 pass
+ 0 fail
+ 182 expect() calls
+Ran 35 tests across 8 files. [904.00ms]

@@ -2,7 +2,7 @@ import { afterAll, beforeAll, expect, test } from "bun:test";
 import { MongoClient } from "mongodb";
 import {
   AuthenticatingConcept, InvalidCredentials, InvalidUsername,
-  UsernameTaken, WeakPassword,
+  NoSuchAccount, UsernameTaken, WeakPassword,
 } from "./Authenticating.ts";
 
 const url = process.env.MONGODB_URL;
@@ -21,6 +21,7 @@ test("registers and authenticates a persistent account", async () => {
   expect(await reloaded.authenticate({ username: "organizer", password: "example-pass-123" }))
     .toEqual({ account: "organizer" });
   expect(await reloaded._registered({ username: "organizer" })).toEqual({ registered: true });
+  expect(await reloaded.verifyRegistered({ username: "organizer" })).toEqual({});
 });
 
 test("rejects duplicate names and incorrect credentials", async () => {
@@ -37,4 +38,10 @@ test("validates new credentials", async () => {
     .rejects.toBeInstanceOf(InvalidUsername);
   await expect(auth.register({ username: "another", password: "short" }))
     .rejects.toBeInstanceOf(WeakPassword);
+  expect(await auth._registered({ username: "another" })).toEqual({ registered: false });
+});
+
+test("refuses to verify an account that was not registered", async () => {
+  await expect(auth.verifyRegistered({ username: "missing" })).rejects.toBeInstanceOf(NoSuchAccount);
+  expect(await auth._registered({ username: "missing" })).toEqual({ registered: false });
 });

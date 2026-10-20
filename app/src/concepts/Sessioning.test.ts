@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, expect, test } from "bun:test";
+import { afterAll, beforeAll, expect, setSystemTime, test } from "bun:test";
 import { MongoClient } from "mongodb";
 import { SessioningConcept, UnknownSession } from "./Sessioning.ts";
 
@@ -19,9 +19,25 @@ test("resolves a session after creating a new concept instance", async () => {
   expect(await reloaded._active({ session })).toEqual([{ subject: "organizer", expiresAt }]);
   expect(await reloaded.end({ session })).toEqual({ ended: true });
   await expect(sessions.current({ session })).rejects.toBeInstanceOf(UnknownSession);
+  expect(await sessions._isActive({ session })).toEqual({ active: false });
+  await expect(sessions.end({ session })).rejects.toBeInstanceOf(UnknownSession);
 });
 
 test("rejects invented sessions", async () => {
   expect(await sessions._active({ session: "made-up" })).toEqual([]);
+  expect(await sessions._isActive({ session: "made-up" })).toEqual({ active: false });
   await expect(sessions.current({ session: "made-up" })).rejects.toBeInstanceOf(UnknownSession);
+  await expect(sessions.end({ session: "made-up" })).rejects.toBeInstanceOf(UnknownSession);
+});
+
+test("expires a session without letting it be reused or ended", async () => {
+  const { session, expiresAt } = await sessions.start({ subject: "visitor" });
+  try {
+    setSystemTime(new Date(expiresAt.getTime() + 1));
+    expect(await sessions._isActive({ session })).toEqual({ active: false });
+    await expect(sessions.current({ session })).rejects.toBeInstanceOf(UnknownSession);
+    await expect(sessions.end({ session })).rejects.toBeInstanceOf(UnknownSession);
+  } finally {
+    setSystemTime();
+  }
 });

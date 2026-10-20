@@ -1,0 +1,55 @@
+/auth/register: 200
+/auth/register: 200
+/auth/register: 200
+/auth/register: 200
+/fairs/create: 200
+/booths/create: 200
+/booths/representatives/add: 200
+/fairs/page: 200
+/fairs/enter: 200
+/fairs/move: 200
+/fairs/enter: 200
+/fairs/enter: 200
+/fairs/guest-enter: 200
+/calls/open-invite: 200
+/fairs/page: 200
+/queues/join: 403
+/queues/join: 200
+/queues/guest-join: 200
+/queues/join: 409
+/calls/claim-invitation: 403
+/queues/booth: 403
+/queues/remove: 403
+/queues/booth: 200
+/queues/invite-next: 200
+/queues/booth: 200
+/calls/claim-invitation: 403
+/calls/join: 403
+/calls/claim-invitation: 200
+/queues/accepting: 200
+/queues/join: 409
+/queues/invite-next: 200
+/queues/remove: 200
+/calls/guest-claim-invitation: 403
+/fairs/move: 200
+/fairs/page: 200
+/fairs/move: 200
+/fairs/page: 200
+/calls/claim-invitation: 200
+/calls/close: 200
+/fairs/page: 200
+/calls/open: 200
+/calls/mode: 200
+/fairs/page: 200
+/fairs/guest-enter: 200
+/queues/guest-join: 200
+/fairs/guest-leave: 200
+/queues/booth: 200
+/calls/mode: 200
+/fairs/page: 200
+Invitation HTTP flow passed {
+  fair: "f931f6af-1850-4946-bb6d-d157da8c3c8c",
+  booth: "4ef6577d-57b9-451f-a704-899b3b933d71",
+  call: "2c57120c-0cd1-44d1-94c0-4253341c12db",
+  checked: "order, representative refusal, access, guest departure, pause, resume, close, mode switch",
+}

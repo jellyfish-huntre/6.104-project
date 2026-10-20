@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Roam · Coded fair map prototypes</title>
+  <style>
+    :root { font-family: Inter, ui-sans-serif, system-ui, sans-serif; color: #eef2ff; background: #172243; }
+    * { box-sizing: border-box; }
+    body { margin: 0; }
+    button { font: inherit; cursor: pointer; }
+    button:focus-visible, a:focus-visible { outline: 3px solid #ffbd80; outline-offset: 3px; }
+    main { max-width: 1400px; margin: auto; padding: clamp(18px, 3.6vw, 52px); }
+    .eyebrow { color: #9fe5da; font-size: .72rem; font-weight: 850; letter-spacing: .14em; text-transform: uppercase; }
+    h1 { margin: 11px 0 12px; font-size: clamp(2.1rem, 4.3vw, 3.8rem); letter-spacing: -.055em; line-height: 1.03; }
+    .intro { max-width: 840px; margin: 0 0 28px; color: #c0cbe5; line-height: 1.55; }
+    .directions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 23px; }
+    .card { min-width: 0; border: 1px solid #526184; border-radius: 18px; overflow: hidden; background: #fffdf8; color: #283552; box-shadow: 0 15px 32px #09132d48; }
+    .card .scene { border-bottom: 1px solid #cfd4df; }
+    .card-body { padding: 18px 22px 21px; }
+    .card-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+    .card h2 { margin: 0; font-size: 1.55rem; letter-spacing: -.04em; }
+    .tag { border-radius: 99px; padding: 5px 9px; background: #eeebff; color: #56499a; font-size: .68rem; font-weight: 850; white-space: nowrap; }
+    .card p { margin: 8px 0 13px; color: #607089; font-size: .88rem; line-height: 1.45; }
+    .card button.preview { border: 0; border-radius: 9px; padding: 9px 13px; background: #5947bb; color: white; font-size: .82rem; font-weight: 800; }
+    .card button.preview:hover { background: #44339e; }
+    .card small { display: block; margin-top: 9px; color: #748099; line-height: 1.45; }
+    .note { margin-top: 25px; border: 1px solid #566789; border-radius: 13px; padding: 16px 19px; background: #26375f; color: #d2dcf1; line-height: 1.5; font-size: .88rem; }
+    .note strong { color: white; }
+
+    /* The same 10 x 10 geometry and object roles are used in all four scenes. */
+    .scene { position: relative; width: 100%; aspect-ratio: 1.45; overflow: hidden; isolation: isolate; background: var(--floor); }
+    .floor { position: absolute; inset: 0; background: var(--floor-pattern); background-size: var(--floor-size); }
+    .aisle-x, .aisle-y { position: absolute; z-index: 1; background: var(--aisle); pointer-events: none; }
+    .aisle-x { left: 0; right: 0; top: 40%; height: 20%; }
+    .aisle-y { top: 0; bottom: 0; left: 40%; width: 20%; }
+    .wall { position: absolute; z-index: 8; inset: 0; border: var(--wall-width) solid var(--wall); pointer-events: none; box-shadow: inset 0 0 0 2px var(--wall-inner); }
+    .booth { position: absolute; z-index: 2; width: 30%; height: 30%; border: var(--booth-border) solid var(--booth-edge); border-radius: var(--booth-radius); background: var(--booth-fill); box-shadow: var(--booth-shadow); color: var(--label-ink); text-align: center; padding: 0; }
+    .booth.one { left: 10%; top: 10%; --booth-fill: var(--zone-one); --booth-edge: var(--edge-one); }
+    .booth.two { left: 60%; top: 10%; --booth-fill: var(--zone-two); --booth-edge: var(--edge-two); }
+    .booth.three { left: 10%; top: 60%; --booth-fill: var(--zone-three); --booth-edge: var(--edge-three); }
+    .booth.four { left: 60%; top: 60%; --booth-fill: var(--zone-four); --booth-edge: var(--edge-four); }
+    .booth:hover, .booth:focus-visible { z-index: 4; filter: brightness(1.06); }
+    .booth-name { position: absolute; z-index: 3; top: 7%; left: 50%; transform: translateX(-50%); max-width: 95%; border-radius: var(--label-radius); padding: 2px 5px; background: var(--label-bg); box-shadow: 0 2px 5px #17224330; font-size: clamp(.47rem, .95vw, .82rem); font-weight: 900; white-space: nowrap; }
+    .booth-table { position: absolute; left: 28%; top: 46%; width: 44%; height: 26%; border: var(--object-border) solid var(--table-edge); border-radius: var(--table-radius); background: var(--table); box-shadow: var(--object-shadow); }
+    .booth-table::after { content: ""; position: absolute; inset: 14% 9%; border-radius: inherit; border: 1px solid var(--table-line); }
+    .seat { position: absolute; top: 51%; width: 12%; height: 18%; border: var(--object-border) solid var(--seat-edge); border-radius: var(--seat-radius); background: var(--seat); box-shadow: var(--object-shadow); }
+    .seat.left { left: 11%; }.seat.right { right: 11%; }
+    .display { position: absolute; right: 10%; top: 22%; width: 17%; height: 13%; border: var(--object-border) solid var(--display-edge); border-radius: var(--display-radius); background: var(--display); transform: rotate(-8deg); }
+    .plant { position: absolute; z-index: 5; width: 4.8%; aspect-ratio: 1; transform: translate(-50%, -50%); border: var(--object-border) solid var(--pot); border-radius: var(--plant-radius); background: var(--leaves); box-shadow: var(--object-shadow); }
+    .plant::after { content: ""; position: absolute; inset: 18%; border-radius: inherit; background: var(--leaf-core); }
+    .plant.a { left: 35%; top: 35%; }.plant.b { left: 65%; top: 35%; }.plant.c { left: 35%; top: 65%; }.plant.d { left: 65%; top: 65%; }
+    .sign { position: absolute; z-index: 7; top: 3%; left: 3%; border-radius: var(--label-radius); padding: 3px 7px; color: var(--sign-ink); background: var(--sign-bg); font-size: clamp(.43rem, .7vw, .65rem); font-weight: 900; letter-spacing: .1em; }
+    .person { position: absolute; z-index: 6; width: 4.2%; aspect-ratio: .75; transform: translate(-50%, -52%); transition: left .17s linear, top .17s linear; filter: drop-shadow(0 2px 2px #14203b66); pointer-events: none; }
+    .person .shadow { position: absolute; bottom: 0; left: 12%; width: 76%; height: 22%; border-radius: 50%; background: #1d294252; }
+    .person .legs { position: absolute; left: 27%; bottom: 6%; width: 46%; height: 33%; border-radius: var(--avatar-radius); background: var(--pants); box-shadow: inset 4px 0 0 #ffffff35; }
+    .person .body { position: absolute; left: 17%; top: 32%; width: 66%; height: 42%; border: 2px solid var(--avatar-outline); border-radius: var(--avatar-radius); background: var(--shirt); }
+    .person .head { position: absolute; z-index: 2; left: 25%; top: 10%; width: 50%; aspect-ratio: 1; border: 1.5px solid var(--avatar-outline); border-radius: var(--head-radius); background: var(--skin); }
+    .person .hair { position: absolute; z-index: 3; left: 23%; top: 3%; width: 54%; height: 22%; border-radius: var(--hair-radius); background: var(--hair); }
+    .person.you { --shirt: #7156d9; left: 45%; top: 45%; }
+    .person.other-one { --shirt: #f08767; left: 25%; top: 35%; }
+    .person.other-two { --shirt: #68b79b; left: 75%; top: 75%; }
+    .person.walking .body { animation: bounce .19s ease-in-out infinite alternate; }
+    .person.walking .legs { animation: stride .19s ease-in-out infinite alternate; }
+    @keyframes bounce { to { translate: 0 -3px; } }
+    @keyframes stride { to { transform: rotate(11deg); } }
+    .collision { position: absolute; z-index: 9; width: 10%; height: 10%; border: 2px dashed #e33d53; background: #e33d5355; pointer-events: none; display: none; }
+    .show-hitboxes .collision { display: block; }
+
+    /* Four feasible style systems; there are no raster map assets. */
+    .pixel { --floor: #bcb6b3; --floor-pattern: linear-gradient(90deg,#ffffff13 50%,transparent 50%), linear-gradient(#ffffff13 50%,transparent 50%), repeating-linear-gradient(0deg,#c9c2b5 0 9%,#bdb5a9 9% 10%); --floor-size: 8% 8%,8% 8%,100% 20%; --aisle: #eee1c5; --wall: #697c9c; --wall-inner: #a5b4c5; --wall-width: 9px; --booth-border: 4px; --booth-radius: 2px; --booth-shadow: 0 5px 0 #34436655; --zone-one: #9b93bb; --zone-two: #8eafc4; --zone-three: #9ab39a; --zone-four: #c3a1aa; --edge-one: #655a91; --edge-two: #5b8098; --edge-three: #607d60; --edge-four: #956d79; --label-ink: #3d3554; --label-bg: #fff3da; --label-radius: 2px; --table: #d9ac73; --table-edge: #76543d; --table-line: #f1d5a7; --table-radius: 1px; --seat: #657f9f; --seat-edge: #3d5576; --seat-radius: 1px; --display: #f1dbba; --display-edge: #715c4b; --display-radius: 1px; --object-border: 3px; --object-shadow: 0 4px 0 #28385462; --plant-radius: 1px; --pot: #735947; --leaves: #3f815f; --leaf-core: #7db773; --sign-bg: #f3dabc; --sign-ink: #4b4a69; --avatar-radius: 2px; --head-radius: 2px; --hair-radius: 2px; --avatar-outline: #4c4050; --pants: #36475a; --skin: #edbd94; --hair: #493c4a; }
+    .pixel .booth { background-image: repeating-linear-gradient(0deg,#ffffff18 0 8%,transparent 8% 16%),repeating-linear-gradient(90deg,#ffffff18 0 8%,transparent 8% 16%); }
+    .pixel .plant { clip-path: polygon(18% 0,82% 0,82% 18%,100% 18%,100% 82%,82% 82%,82% 100%,18% 100%,18% 82%,0 82%,0 18%,18% 18%); }
+
+    .flat { --floor: #24385c; --floor-pattern: radial-gradient(circle at 22% 20%,#ffffff12 0 2px,transparent 3px),linear-gradient(135deg,#2b4268,#1d3153); --floor-size: 34px 34px,100% 100%; --aisle: #233858; --wall: #304d73; --wall-inner: #ffffff16; --wall-width: 5px; --booth-border: 0; --booth-radius: 44% 56% 42% 58% / 54% 40% 60% 46%; --booth-shadow: 0 8px 0 #15274460; --zone-one: #74cdb2; --zone-two: #fa8576; --zone-three: #f7cf6a; --zone-four: #ba9bee; --edge-one: transparent; --edge-two: transparent; --edge-three: transparent; --edge-four: transparent; --label-ink: #20344b; --label-bg: #fffffff2; --label-radius: 99px; --table: #fff4db; --table-edge: #f5e6cc; --table-line: #e8d9c2; --table-radius: 99px; --seat: #fff6dd; --seat-edge: #eadbc2; --seat-radius: 50%; --display: #ffffffd9; --display-edge: #fff7e3; --display-radius: 8px; --object-border: 2px; --object-shadow: 0 5px 0 #24385838; --plant-radius: 50%; --pot: #eaf4e8; --leaves: #2a9b77; --leaf-core: #8cdb97; --sign-bg: #ffffffde; --sign-ink: #334664; --avatar-radius: 11px; --head-radius: 50%; --hair-radius: 80% 80% 40% 40%; --avatar-outline: #34465d; --pants: #2c405a; --skin: #edb791; --hair: #47364b; }
+    .flat .booth.two { border-radius: 58% 42% 53% 47% / 39% 53% 47% 61%; }.flat .booth.three { border-radius: 40% 60% 43% 57% / 54% 48% 52% 46%; }.flat .booth.four { border-radius: 55% 45% 61% 39% / 50% 58% 42% 50%; }
+
+    .arcade { --floor: #171a38; --floor-pattern: linear-gradient(90deg,#8893c211 1px,transparent 1px),linear-gradient(#8893c211 1px,transparent 1px),radial-gradient(circle at 50% 50%,#30345b,#111630); --floor-size: 10% 10%,10% 10%,100% 100%; --aisle: #1d2349; --wall: #513d80; --wall-inner: #ad81ef; --wall-width: 7px; --booth-border: 4px; --booth-radius: 22px; --booth-shadow: 0 0 18px var(--booth-edge), inset 0 0 28px #ffffff13; --zone-one: #543c88; --zone-two: #246879; --zone-three: #813f5b; --zone-four: #544189; --edge-one: #b685f8; --edge-two: #69e0e0; --edge-three: #ff8f9e; --edge-four: #9d9cff; --label-ink: #fffaff; --label-bg: #22213add; --label-radius: 8px; --table: #3f3e71; --table-edge: #d5b1ff; --table-line: #8c6cc9; --table-radius: 13px; --seat: #242a5f; --seat-edge: #9b92d8; --seat-radius: 11px; --display: #6b5ab1; --display-edge: #c9a7ff; --display-radius: 6px; --object-border: 2px; --object-shadow: 0 0 11px #baa1ffb0; --plant-radius: 50%; --pot: #9381b9; --leaves: #315e80; --leaf-core: #76d5c5; --sign-bg: #554c93; --sign-ink: #fff; --avatar-radius: 8px; --head-radius: 50%; --hair-radius: 70% 70% 25% 25%; --avatar-outline: #d4c8ff; --pants: #555887; --skin: #e7b693; --hair: #42345b; }
+
+    .gallery { --floor: #e9e2d3; --floor-pattern: repeating-linear-gradient(90deg,#d0bda957 0 1px,transparent 1px 9%),radial-gradient(#a99c8566 1px,transparent 2px); --floor-size: 100% 100%,23px 23px; --aisle: #f4ecdd; --wall: #b49c7e; --wall-inner: #f9f2e4; --wall-width: 10px; --booth-border: 2px; --booth-radius: 24px 7px 24px 7px; --booth-shadow: 0 5px 8px #8e775745; --zone-one: #b6c4aa; --zone-two: #d6c3ae; --zone-three: #c0c9b0; --zone-four: #ccb9a5; --edge-one: #8a9a7e; --edge-two: #af9985; --edge-three: #929f84; --edge-four: #b6a18d; --label-ink: #405345; --label-bg: #fffaf0; --label-radius: 5px; --table: #c99d72; --table-edge: #977457; --table-line: #ddba93; --table-radius: 10px; --seat: #f4ebd7; --seat-edge: #b8a58c; --seat-radius: 8px; --display: #f3e8d7; --display-edge: #a58d75; --display-radius: 5px; --object-border: 2px; --object-shadow: 0 3px 4px #71634e55; --plant-radius: 50%; --pot: #aa8d72; --leaves: #6c916f; --leaf-core: #accb96; --sign-bg: #fffaf0; --sign-ink: #5f6e62; --avatar-radius: 7px; --head-radius: 50%; --hair-radius: 75% 75% 20% 20%; --avatar-outline: #5a5f59; --pants: #657779; --skin: #e6b58e; --hair: #4f473e; }
+
+    dialog { width: min(1130px, calc(100vw - 30px)); max-height: calc(100vh - 30px); border: 0; border-radius: 15px; padding: 0; background: #f6f5f2; box-shadow: 0 22px 80px #07122ca8; }
+    dialog::backdrop { background: #0a1439c9; }
+    .dialog-bar { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 16px; background: #172449; color: white; }
+    .dialog-bar strong { font-size: .94rem; }.dialog-bar span { display: block; color: #c5d0ec; font-size: .72rem; }
+    .close { border: 1px solid #a7b5d3; border-radius: 8px; padding: 5px 10px; color: white; background: transparent; font-size: .8rem; font-weight: 800; }
+    .stage { position: relative; height: min(77vh, 700px); min-height: 420px; overflow: hidden; }
+    .stage .scene { width: 100%; height: 100%; aspect-ratio: auto; }
+    .float-panel { position: absolute; z-index: 20; top: 18px; right: 18px; width: min(285px, 35%); border: 1px solid #d5dbe7; border-radius: 12px; padding: 14px 16px; background: #fffefaeb; box-shadow: 0 10px 26px #17244938; color: #283552; }
+    .float-panel h3 { margin: 3px 0 6px; font-size: 1.15rem; }.float-panel p { margin: 0; color: #64718a; font-size: .78rem; line-height: 1.4; }
+    .directory { position: absolute; z-index: 20; bottom: 18px; left: 18px; display: grid; place-items: center; width: 50px; height: 50px; border-radius: 50%; color: white; background: #6551c5; border: 2px solid white; box-shadow: 0 5px 14px #17244966; font-size: 1.5rem; }
+    .dialog-foot { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; align-items: center; padding: 9px 15px; color: #5e6c86; font-size: .75rem; }
+    .dialog-foot label { display: inline-flex; align-items: center; gap: 5px; }
+    @media (max-width: 780px) { .directions { grid-template-columns: 1fr; } .card .scene { aspect-ratio: 1.5; }.stage { height: 68vh; }.float-panel { width: min(210px, 46%); } }
+    @media (prefers-reduced-motion: reduce) { .person, .person.walking .body, .person.walking .legs { transition: none; animation: none; } }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="eyebrow">Roam visual study · Buildable map samples</div>
+    <h1>What these would actually look like</h1>
+    <p class="intro">These four maps are rendered entirely with HTML and CSS. They use Roam’s current 10×10 movement grid, four open booth footprints, furniture, collision positions, and a walking avatar. Open one to move around with WASD or arrow keys. The scenes use no generated images.</p>
+    <section class="directions" aria-label="Coded map directions">
+      <article class="card" data-theme="pixel"><div class="scene pixel" aria-hidden="true"></div><div class="card-body"><div class="card-heading"><h2>01 · Pixel Fair</h2><span class="tag">Sprite-like</span></div><p>Square furniture and rugs, tiled hall floor, and a small blocky avatar. A feasible first step toward the Gather feeling.</p><button class="preview" type="button" data-theme="pixel">Walk this map</button><small>Best for: a real world to explore. Requires matching sprite assets to go further.</small></div></article>
+      <article class="card" data-theme="flat"><div class="scene flat" aria-hidden="true"></div><div class="card-body"><div class="card-heading"><h2>02 · Playful Flat</h2><span class="tag">Simple + social</span></div><p>Rounded booth areas and furniture on a navy floor. Closest to Roam’s landing screen and the uncluttered Gimkit direction.</p><button class="preview" type="button" data-theme="flat">Walk this map</button><small>Best for: bold, easy to read booths and a small implementation scope.</small></div></article>
+      <article class="card" data-theme="arcade"><div class="scene arcade" aria-hidden="true"></div><div class="card-body"><div class="card-heading"><h2>03 · Night Arcade</h2><span class="tag">Dark + glowing</span></div><p>Glowing booth outlines and darker floor tiles give each area a stronger game feel while keeping the same top-down map.</p><button class="preview" type="button" data-theme="arcade">Walk this map</button><small>Best for: a bolder identity. Needs careful contrast in the real UI.</small></div></article>
+      <article class="card" data-theme="gallery"><div class="scene gallery" aria-hidden="true"></div><div class="card-body"><div class="card-heading"><h2>04 · Indoor Gallery</h2><span class="tag">Warm + quiet</span></div><p>Wood-toned furniture, a light textured floor, and soft green booth rugs make the hall feel indoorsy without buildings.</p><button class="preview" type="button" data-theme="gallery">Walk this map</button><small>Best for: a calm fair. Less connected to Roam’s dark playful UI.</small></div></article>
+    </section>
+    <p class="note"><strong>Implementation scope:</strong> this is a small coded prototype of the map layer, not a screenshot or polished asset pack. The live app is unchanged. Tables and plants in the playable previews have blocked grid cells; the red overlay lets you inspect them.</p>
+  </main>
+
+  <dialog id="preview-dialog" aria-label="Playable fair map preview">
+    <div class="dialog-bar"><div><strong id="preview-title">Roam map preview</strong><span>Same booth layout and movement grid as Roam</span></div><button id="close-preview" class="close" type="button">Close ✕</button></div>
+    <div class="stage"><div id="preview-stage"></div><aside class="float-panel"><div class="eyebrow">Selected booth</div><h3 id="selected-name">Studio One</h3><p>Open booth area · Select another area or walk between booths.</p></aside><button class="directory" type="button" aria-label="Booth directory" title="Booth directory">☷</button></div>
+    <div class="dialog-foot"><span>Move: WASD / arrow keys · Hold a key to keep walking · Click a booth to select it</span><label><input id="show-hitboxes" type="checkbox"> Show object hitboxes</label></div>
+  </dialog>
+  <script>
+    const booths = [
+      { name: "Studio One", x: 1, y: 1 },
+      { name: "Club Table", x: 6, y: 1 },
+      { name: "Meet & Chat", x: 1, y: 6 },
+      { name: "Art Circle", x: 6, y: 6 }
+    ];
+    const blocked = new Set(["2,2","7,2","2,7","7,7","3,3","6,3","3,6","6,6"]);
+    const boothNames = ["one","two","three","four"];
+    function mapMarkup() {
+      return `<div class="floor"></div><div class="aisle-x"></div><div class="aisle-y"></div>
+        ${booths.map((booth, i) => `<button class="booth ${boothNames[i]}" type="button" data-booth="${i}" aria-label="Select ${booth.name} booth"><span class="booth-name">${booth.name}</span><span class="display"></span><span class="seat left"></span><span class="booth-table"></span><span class="seat right"></span></button>`).join("")}
+        <span class="plant a"></span><span class="plant b"></span><span class="plant c"></span><span class="plant d"></span>
+        <span class="sign">WELCOME</span>
+        <span class="person you" data-player><span class="shadow"></span><span class="legs"></span><span class="body"></span><span class="head"></span><span class="hair"></span></span>
+        <span class="person other-one"><span class="shadow"></span><span class="legs"></span><span class="body"></span><span class="head"></span><span class="hair"></span></span>
+        <span class="person other-two"><span class="shadow"></span><span class="legs"></span><span class="body"></span><span class="head"></span><span class="hair"></span></span>
+        ${[...blocked].map((point) => { const [x,y] = point.split(",").map(Number); return `<span class="collision" style="left:${x*10}%;top:${y*10}%"></span>`; }).join("")}
+        <span class="wall"></span>`;
+    }
+    document.querySelectorAll(".card .scene").forEach(scene => scene.innerHTML = mapMarkup());
+    const dialog = document.querySelector("#preview-dialog");
+    const stage = document.querySelector("#preview-stage");
+    const title = document.querySelector("#preview-title");
+    const selected = document.querySelector("#selected-name");
+    const hitboxes = document.querySelector("#show-hitboxes");
+    let position = { x: 4, y: 4 };
+    let movingTimer = null;
+    let heldKey = null;
+    const names = { pixel: "Pixel Fair", flat: "Playful Flat", arcade: "Night Arcade", gallery: "Indoor Gallery" };
+    function renderPosition() {
+      const player = stage.querySelector("[data-player]");
+      if (!player) return;
+      player.style.left = `${(position.x + .5) * 10}%`;
+      player.style.top = `${(position.y + .5) * 10}%`;
+    }
+    function move(key) {
+      const steps = { w: [0,-1], ArrowUp: [0,-1], s: [0,1], ArrowDown: [0,1], a: [-1,0], ArrowLeft: [-1,0], d: [1,0], ArrowRight: [1,0] };
+      const step = steps[key];
+      if (!step) return;
+      const x = position.x + step[0], y = position.y + step[1];
+      if (x < 0 || x > 9 || y < 0 || y > 9 || blocked.has(`${x},${y}`)) return;
+      position = { x, y };
+      renderPosition();
+      const booth = booths.find(booth => x >= booth.x && x < booth.x + 3 && y >= booth.y && y < booth.y + 3);
+      if (booth) selected.textContent = booth.name;
+    }
+    document.querySelectorAll(".preview").forEach(button => button.addEventListener("click", () => {
+      const theme = button.dataset.theme;
+      stage.innerHTML = `<div class="scene ${theme}">${mapMarkup()}</div>`;
+      title.textContent = `${names[theme]} · coded preview`;
+      selected.textContent = booths[0].name;
+      position = { x: 4, y: 4 };
+      renderPosition();
+      hitboxes.checked = false;
+      dialog.showModal();
+    }));
+    stage.addEventListener("click", event => {
+      const booth = event.target.closest(".booth");
+      if (booth) selected.textContent = booths[Number(booth.dataset.booth)].name;
+    });
+    hitboxes.addEventListener("change", () => stage.classList.toggle("show-hitboxes", hitboxes.checked));
+    document.querySelector("#close-preview").addEventListener("click", () => dialog.close());
+    document.querySelector(".directory").addEventListener("click", () => selected.textContent = "Booth directory");
+    document.addEventListener("keydown", event => {
+      if (!dialog.open || !["w","a","s","d","ArrowUp","ArrowDown","ArrowLeft","ArrowRight"].includes(event.key)) return;
+      event.preventDefault();
+      if (heldKey === event.key) return;
+      heldKey = event.key;
+      move(event.key);
+      stage.querySelector("[data-player]")?.classList.add("walking");
+      clearInterval(movingTimer);
+      movingTimer = setInterval(() => move(heldKey), 190);
+    });
+    function stopWalking(event) {
+      if (event && event.key !== heldKey) return;
+      clearInterval(movingTimer);
+      movingTimer = null;
+      heldKey = null;
+      stage.querySelector("[data-player]")?.classList.remove("walking");
+    }
+    document.addEventListener("keyup", stopWalking);
+    dialog.addEventListener("close", () => { stopWalking(); stage.innerHTML = ""; });
+    window.addEventListener("blur", () => stopWalking());
+  </script>
+</body>
+</html>
