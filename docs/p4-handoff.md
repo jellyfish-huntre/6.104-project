@@ -6,9 +6,10 @@ The [testing and validation record](p4-test-results.md) links the commands, loca
 
 ## Before submitting
 
-- Check the deployed commit separately: account creation, a public seeded fair, both call modes, booth placement and movement, walking and collisions, access refusals, and persistence after reload. Record the live result in the testing document. Its current results are local.
-- Record the final narrated demo video and link it from the README.
-- Make sure the design summary, test record, evidence, specs, and deployed app all describe the same commit.
+- Sign in as the Demo Fair organizer and add at least one public booth. The fair is listed, but it currently has no booths.
+- Walk through that populated fair manually, including a visitor account, both call modes, and a reload. The live automated checks and their deployment commit are recorded in the testing document.
+- Check the narrated demo linked from the README against the course submission requirements.
+- Make sure the design summary, test record, evidence, specs, and deployed app all describe the final behavior.
 - Commit and push the intended files, then use that commit hash in the course submission form. The [course guide](https://61040.github.io/fa26/guide/) describes this submission step.
 
-The current [testing document](p4-test-results.md) states what the local checks establish and what still needs a live check. A saved screenshot or a passing local script does not establish the behavior of the deployed commit.
+The current [testing document](p4-test-results.md) separates the local checks from the checks run on the live application.
