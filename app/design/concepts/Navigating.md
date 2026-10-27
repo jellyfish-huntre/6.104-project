@@ -8,6 +8,8 @@ Keep track of where people are in a shared space, so others can see who is prese
 
 A visitor enters a space at its entrance. As the visitor moves into a booth's area, their position changes for everyone viewing the space. Signed-in people use their account identity. Guests use a private random token, which Navigating turns into a public pseudonym. Guest presence expires after 30 seconds without a refresh; the token itself is never returned in the public presence list.
 
+Free walking uses fractional cell coordinates. Each update is limited by distance and elapsed time. The composition checks the path against the current hall boundary and obstacles. The original one-cell action remains for older clients.
+
 ## Types
 
 ```types
@@ -32,8 +34,10 @@ a set of Presences with
   a space Space
   a position Position
   an optional guestSeenAt String
+  an optional movedAt String
 
 Rule: Guest presences are visible for 30 seconds after their most recent enter or move.
+Rule: movedAt bounds the rate of free-walking updates; older presences can begin free walking.
 ```
 
 ## Actions
@@ -56,6 +60,18 @@ move(person: Person, destination: Position) : returns ()
   then
     changes the person's position to destination
     returns
+  where person is not present
+  then
+    refuses NOT_PRESENT "That person is not in a space."
+
+moveFree(person: Person, destination: Position) : returns ()
+  where person is present and destination is within the map and reachable at walking speed
+  then
+    change the person's position and update the last movement time
+    returns
+  where person is present and destination has a negative coordinate or is too far for elapsed time
+  then
+    refuses INVALID_MOVE "That movement is too far or outside the fair."
   where person is not present
   then
     refuses NOT_PRESENT "That person is not in a space."
@@ -93,6 +109,21 @@ moveGuest(token: GuestToken, destination: Position) : returns (person: Person, p
   where the guest is active and destination is not a valid step
   then
     refuses INVALID_MOVE "Move one cell within the fair."
+  where the guest is absent or expired
+  then
+    refuses NOT_PRESENT "That person is not in a space."
+
+moveGuestFree(token: GuestToken, destination: Position) : returns (person: Person, position: Position)
+  where token identifies an active guest and destination is within the map and reachable at walking speed
+  then
+    change the guest's position, refresh its presence, and update the last movement time
+    returns person, position
+  where token is invalid
+  then
+    refuses INVALID_GUEST_TOKEN "Use a valid guest token."
+  where token identifies an active guest and destination is outside the map or too far for elapsed time
+  then
+    refuses INVALID_MOVE "That movement is too far or outside the fair."
   where the guest is absent or expired
   then
     refuses NOT_PRESENT "That person is not in a space."

@@ -1,0 +1,1 @@
+Booth placement, movement, deletion of idle/live/paused booths, and ownership checks passed.

@@ -4,14 +4,45 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Roam · Explore fairs</title>
+    <link rel="icon" type="image/svg+xml" href="./assets/roam-mark.svg" />
     <link rel="stylesheet" href="./styles.css" />
     <script type="module" src="./app.ts"></script>
   </head>
   <body>
     <main id="app" class="app-shell">
       <section v-if="!fair" class="landing-screen" aria-label="Roam landing screen">
+        <div class="landing-scene" aria-hidden="true">
+          <span class="landing-prop landing-prop-piano" style="--x:6%;--y:9%"></span>
+          <span class="landing-prop landing-prop-table landing-prop-table-green" style="--x:41%;--y:8%"></span>
+          <span class="landing-prop landing-prop-shelf" style="--x:78%;--y:10%"></span>
+          <span class="landing-prop landing-prop-table landing-prop-table-green" style="--x:90%;--y:32%"></span>
+          <span class="landing-prop landing-prop-shelf" style="--x:8%;--y:52%"></span>
+          <span class="landing-prop landing-prop-table landing-prop-table-green" style="--x:73%;--y:57%"></span>
+          <span class="landing-prop landing-prop-piano" style="--x:22%;--y:84%"></span>
+          <span class="landing-prop landing-prop-table landing-prop-table-green" style="--x:62%;--y:82%"></span>
+          <span class="landing-prop landing-prop-candle" style="--x:19%;--y:17%"></span>
+          <span class="landing-prop landing-prop-chair landing-prop-chair-white" style="--x:57%;--y:12%"></span>
+          <span class="landing-prop landing-prop-candle" style="--x:88%;--y:16%"></span>
+          <span class="landing-prop landing-prop-chair landing-prop-chair-white" style="--x:13%;--y:36%"></span>
+          <span class="landing-prop landing-prop-chair" style="--x:31%;--y:48%"></span>
+          <span class="landing-prop landing-prop-chair landing-prop-chair-white" style="--x:81%;--y:47%"></span>
+          <span class="landing-prop landing-prop-chair" style="--x:7%;--y:78%"></span>
+          <span class="landing-prop landing-prop-chair landing-prop-chair-white" style="--x:47%;--y:75%"></span>
+          <span class="landing-prop landing-prop-plant" style="--x:30%;--y:23%"></span>
+          <span class="landing-prop landing-prop-plant" style="--x:70%;--y:24%"></span>
+          <span class="landing-prop landing-prop-plant" style="--x:94%;--y:60%"></span>
+          <span class="landing-prop landing-prop-plant" style="--x:18%;--y:64%"></span>
+          <span class="landing-prop landing-prop-plant" style="--x:42%;--y:91%"></span>
+          <span class="landing-prop landing-prop-candle" style="--x:87%;--y:82%"></span>
+          <span class="landing-prop landing-prop-shelf" style="--x:5%;--y:27%"></span>
+          <span class="landing-prop landing-prop-plant" style="--x:58%;--y:48%"></span>
+          <span class="landing-walker landing-walker-one"></span>
+          <span class="landing-walker landing-walker-two"></span>
+          <span class="landing-walker landing-walker-three"></span>
+          <span class="landing-walker landing-walker-four"></span>
+        </div>
         <div v-if="landingView === 'enter'" class="entry-card">
-          <div class="brand entry-brand"><span class="brand-mark" aria-hidden="true">↗</span>Roam</div>
+          <div class="brand entry-brand"><img class="brand-mark" src="./assets/roam-mark.svg" alt="" />Roam</div>
           <p v-if="status && !accountPanelOpen" class="inline-status" role="alert">{{ status }}</p>
           <form class="entry-form" @submit.prevent="openFairByCode">
             <label for="fair-code">Fair code</label>
@@ -21,7 +52,10 @@
           </form>
           <div class="or-divider"><span>or</span></div>
           <button class="secondary-button" type="button" @click="landingView = 'browse'">Browse public fairs</button>
-          <button class="create-link" type="button" @click="openAccountPanel('create')">Create a fair</button>
+          <div class="entry-account-actions">
+            <button class="create-link" type="button" @click="openAccountPanel('create')">Create a fair</button>
+            <button v-if="!account" class="create-link" type="button" @click="openAccountPanel('sign-in')">Sign in</button>
+          </div>
         </div>
         <div v-else class="browse-card">
           <button class="text-button back-button" type="button" @click="landingView = 'enter'">← Back</button>
@@ -75,9 +109,9 @@
         </section>
       </div>
 
-      <section v-if="fair" id="fair-details" class="fair-screen" :class="[mapStyle === 'kenney' ? 'map-style-kenney' : 'map-style-pixel', { 'directory-is-open': directoryOpen }]" aria-label="Fair details">
+      <section v-if="fair" id="fair-details" class="fair-screen map-style-kenney" :class="{ 'directory-is-open': directoryOpen }" aria-label="Fair details">
         <header class="fair-topbar">
-          <div class="fair-title-group"><div class="brand"><span class="brand-mark" aria-hidden="true">↗</span>Roam</div><h1>{{ fair.name }}</h1></div>
+          <div class="fair-title-group"><div class="brand"><img class="brand-mark" src="./assets/roam-mark.svg" alt="" />Roam</div><h1>{{ fair.name }}</h1></div>
           <div class="topbar-actions">
             <span class="topbar-presence">{{ people.length }} {{ people.length === 1 ? 'person' : 'people' }} here</span>
             <span class="topbar-code">{{ fair.code }}</span>
@@ -89,11 +123,6 @@
         </header>
         <div class="fair-main">
           <p class="sr-only" aria-live="polite">Your avatar is at ({{ avatar.x }}, {{ avatar.y }}). {{ joinedFair ? 'You are in the fair.' : 'Entering the fair.' }}</p>
-          <div class="map-style-toggle" role="group" aria-label="Map view controls">
-            <button type="button" class="map-style-option" :aria-pressed="mapStyle === 'pixel'" @click="chooseMapStyle('pixel')">Pixel Fair</button>
-            <button type="button" class="map-style-option" :aria-pressed="mapStyle === 'kenney'" @click="chooseMapStyle('kenney')">Kenney</button>
-            <button type="button" class="map-style-option map-hitbox-option" :aria-pressed="showHitboxes" @click="showHitboxes = !showHitboxes">Hitboxes</button>
-          </div>
           <section v-if="activeRequests.length" class="request-summary" aria-label="Your waiting requests">
             <div class="eyebrow">Your request</div>
             <div v-for="item in activeRequests" :key="item.booth.booth" class="request-row">
@@ -108,16 +137,15 @@
           <p v-if="validJoinLink" class="call-link"><a :href="joinLink" target="_blank" rel="noopener noreferrer">Open video call ↗</a></p>
           <div class="discovery-layout">
             <section class="map-panel" aria-label="Fair map">
-              <div ref="mapViewport" class="map-scroll"><div class="fair-map" aria-label="Top-down indoor fair hall">
-                <div class="hall-floor" aria-hidden="true"><span class="hall-aisle horizontal"></span><span class="hall-aisle vertical"></span><span v-for="plant in hallPlants" :key="`${plant.x},${plant.y}`" class="hall-plant" :style="plant.style"></span><span class="hall-welcome">WELCOME</span></div>
+              <div ref="mapViewport" class="map-scroll" @scroll="updateMinimapViewport"><div class="fair-map" :style="mapStyle" aria-label="Top-down indoor fair hall">
+                <div class="hall-floor" aria-hidden="true"><span v-for="plant in hallPlants" :key="`${plant.x},${plant.y}`" class="hall-plant" :style="plant.style"></span><span v-for="item in hallFurniture" :key="`${item.kind}-${item.x},${item.y}`" class="hall-furniture" :class="`hall-${item.kind}`" :style="item.style"></span><span class="hall-welcome">WELCOME</span></div>
                 <button v-for="boothArea in boothAreas" :key="boothArea.booth" type="button" class="booth-area"
-                  :class="{ selected: selectedBoothId === boothArea.booth, compact: !boothArea.roomy, live: boothArea.calls.length }"
+                  :class="[`booth-variant-${boothArea.variant}`, { selected: selectedBoothId === boothArea.booth, compact: !boothArea.roomy, live: boothArea.calls.length }]"
                   :style="boothArea.style" :aria-label="`Select ${boothArea.name} booth`" :aria-pressed="selectedBoothId === boothArea.booth"
                   @click="selectBooth(boothArea.booth)">
                   <span class="area-name">{{ boothArea.name }}</span>
-                  <span v-if="boothArea.roomy" class="booth-table" aria-hidden="true"></span>
-                  <span v-if="boothArea.roomy" class="booth-chair chair-left" aria-hidden="true"></span>
-                  <span v-if="boothArea.roomy" class="booth-chair chair-right" aria-hidden="true"></span>
+                  <span v-for="item in boothArea.furnishings" :key="item.key"
+                    :class="`booth-${item.kind}`" :style="item.style" aria-hidden="true"></span>
                   <span v-if="boothArea.calls.length" class="live-dot" aria-hidden="true"></span>
                 </button>
                 <div v-for="person in mapAvatars" :key="person.person" class="map-avatar"
@@ -129,19 +157,27 @@
                   <span class="avatar-arm arm-left" aria-hidden="true"></span><span class="avatar-arm arm-right" aria-hidden="true"></span>
                   <span class="avatar-body" aria-hidden="true"></span><span class="avatar-head" aria-hidden="true"></span><span class="avatar-hair" aria-hidden="true"></span>
                 </div>
-                <div v-if="showHitboxes" class="map-hitboxes" aria-hidden="true">
-                  <span v-for="cell in hitboxCells" :key="cell.key" class="hitbox-cell" :style="cell.style"></span>
-                </div>
                 <span class="entrance-marker" aria-hidden="true">Entrance</span>
               </div></div>
             </section>
+          <button class="minimap" type="button" aria-label="Pan the map using the minimap" @click="panFromMinimap">
+            <span class="minimap-label">Map · {{ mapExtent.width }} × {{ mapExtent.height }}</span>
+            <span v-for="boothArea in boothAreas" :key="boothArea.booth" class="minimap-booth"
+              :class="`booth-variant-${boothArea.variant}`" :style="boothArea.style" aria-hidden="true"></span>
+            <span v-for="person in mapAvatars" :key="person.person" class="minimap-person"
+              :class="{ own: person.own }" :style="person.style" aria-hidden="true"></span>
+            <span class="minimap-window" :style="{
+              left: `${minimapViewport.left}%`, top: `${minimapViewport.top}%`,
+              width: `${minimapViewport.width}%`, height: `${minimapViewport.height}%`
+            }" aria-hidden="true"></span>
+          </button>
           <article v-if="selectedBooth" class="booth-detail" :class="{ 'is-collapsed': !boothPanelExpanded }" aria-label="Selected booth">
             <div class="booth-panel-top"><div><div class="eyebrow">Selected booth</div><h3>{{ selectedBooth.name }}</h3></div>
               <button type="button" class="panel-toggle" :aria-label="boothPanelExpanded ? 'Minimize booth details' : 'Expand booth details'" :aria-expanded="boothPanelExpanded" @click="boothPanelExpanded = !boothPanelExpanded">{{ boothPanelExpanded ? '−' : '+' }}</button>
             </div>
             <div v-show="boothPanelExpanded" class="booth-panel-body">
             <p v-if="status && !directoryOpen && !accountPanelOpen" class="inline-status" role="alert">{{ status }}</p>
-            <p class="booth-description">{{ selectedBooth.description }}</p>
+            <p v-if="displayDescription(selectedBooth.description)" class="booth-description">{{ displayDescription(selectedBooth.description) }}</p>
             <p class="representatives-line">Representatives:
               <span v-if="selectedBooth.representatives.length === 0">none assigned</span>
               <span v-else>{{ selectedBooth.representatives.map((rep) => rep.representative).join(', ') }}</span>
@@ -220,54 +256,59 @@
           <header class="drawer-header"><div><div class="eyebrow">Explore</div><h2>Booth directory</h2></div><button type="button" class="drawer-close" aria-label="Close booth directory" @click="directoryOpen = false">×</button></header>
           <p v-if="status && !accountPanelOpen" class="inline-status" role="alert">{{ status }}</p>
         <details v-if="canManage" class="management-card" aria-label="Organizer tools">
-          <summary>Organizer tools</summary>
-          <div class="management-heading"><div><div class="eyebrow">Organizer tools</div><h3>Manage this fair</h3></div><span>Share code {{ fair.code }}</span></div>
-          <p>Visibility: <strong>{{ fair.listed ? 'Publicly listed' : 'Unlisted' }}</strong></p>
+          <summary>Fair settings &amp; add booth</summary>
+          <p>Public listing: <strong>{{ fair.listed ? 'On' : 'Off' }}</strong></p>
           <button type="button" :disabled="busy" @click="setFairListing(!fair.listed)">
-            {{ fair.listed ? 'Remove from public fairs' : 'List in public fairs' }}
+            {{ fair.listed ? 'Unlist fair' : 'List fair' }}
           </button>
           <h3>Add a booth</h3>
           <form @submit.prevent="createBooth">
             <label>Booth name <input v-model="boothName" required maxlength="100" /></label>
             <label>Description <textarea v-model="boothDescription" maxlength="1000"></textarea></label>
             <label>Meeting link (optional) <input v-model="boothMeetingUrl" type="url" placeholder="https://…" maxlength="2000" /></label>
-            <p class="hint">Save a video meeting link now so a representative can open a call from this booth later.</p>
-            <div class="grid-fields">
-              <label>X <input v-model.number="area.x" type="number" min="0" max="9" required /></label>
-              <label>Y <input v-model.number="area.y" type="number" min="0" max="9" required /></label>
-              <label>Width <input v-model.number="area.width" type="number" min="1" max="10" required /></label>
-              <label>Height <input v-model.number="area.height" type="number" min="1" max="10" required /></label>
-            </div>
-            <p class="hint">The fair is a 10 × 10 grid. Booths cannot overlap or cover (0, 0).</p>
+            <fieldset class="booth-size-options">
+              <legend>Booth size</legend>
+              <label><input v-model="boothSize" type="radio" value="small" /> Small <span>2 × 2 cells</span></label>
+              <label><input v-model="boothSize" type="radio" value="medium" /> Medium <span>3 × 2 cells</span></label>
+              <label><input v-model="boothSize" type="radio" value="large" /> Large <span>4 × 3 cells</span></label>
+            </fieldset>
             <button :disabled="busy">Add booth</button>
           </form>
         </details>
 
         <section class="directory-card" aria-label="Booth directory">
-        <label>Search booth names, descriptions, or representatives
-          <input v-model="boothQuery" type="search" placeholder="Search booths" />
-        </label>
+        <label class="sr-only" for="booth-search">Search booths</label>
+        <input id="booth-search" v-model="boothQuery" type="search" placeholder="Search booths" />
         <p v-if="fair.booths.length === 0">No booths yet.</p>
         <p v-else-if="visibleBooths.length === 0">No booths match that search.</p>
         <article v-for="booth in visibleBooths" :key="booth.booth">
-          <h4>{{ booth.name }}</h4>
-          <p>{{ booth.description }}</p>
-          <p class="hint">At ({{ booth.footprint.x }}, {{ booth.footprint.y }}), {{ booth.footprint.width }} × {{ booth.footprint.height }} cells</p>
+          <details class="booth-entry" name="booth-list">
+            <summary><h3 class="booth-entry-name">{{ booth.name }}</h3><span class="booth-entry-meta">{{ booth.footprint.width }} × {{ booth.footprint.height }}<span v-if="booth.calls.length" class="live-call"> · Live</span></span></summary>
+            <div class="booth-entry-body">
+          <p v-if="displayDescription(booth.description)">{{ displayDescription(booth.description) }}</p>
+          <p class="hint">Location ({{ booth.footprint.x }}, {{ booth.footprint.y }})</p>
           <button class="text-button" @click="selectBooth(booth.booth)">Show on map</button>
-          <p>Representatives:
-            <span v-if="booth.representatives.length === 0">none assigned</span>
+          <p>Representatives: <span v-if="booth.representatives.length === 0">none</span>
             <span v-for="rep in booth.representatives" :key="rep.representative" class="representative">
               {{ rep.representative }}
               <button v-if="canManage" @click="removeRepresentative(booth.booth, rep.representative)" :disabled="busy" :aria-label="'Remove ' + rep.representative">Remove</button>
             </span>
           </p>
-          <p v-if="booth.calls.length" class="live-call">Live call with {{ booth.calls[0].host }}</p>
-          <p v-else-if="booth.meetingLinkSaved" class="hint">Meeting link saved; no live call yet.</p>
-          <div v-if="canManage && drafts[booth.booth]" class="booth-controls">
+          <details v-if="canManage && drafts[booth.booth]" class="booth-manage">
+            <summary>Manage booth</summary>
+            <div class="booth-controls">
             <form @submit.prevent="editBooth(booth.booth)">
-              <label>Edit name <input v-model="drafts[booth.booth].name" required maxlength="100" /></label>
-              <label>Edit description <textarea v-model="drafts[booth.booth].description" maxlength="1000"></textarea></label>
-              <button :disabled="busy">Save booth details</button>
+              <label>Name <input v-model="drafts[booth.booth].name" required maxlength="100" /></label>
+              <label>Description <textarea v-model="drafts[booth.booth].description" maxlength="1000"></textarea></label>
+              <button :disabled="busy">Save details</button>
+            </form>
+            <form @submit.prevent="moveBooth(booth.booth)">
+              <strong>Move booth</strong>
+              <div class="grid-fields">
+                <label>Column (0–{{ mapExtent.width - booth.footprint.width }}) <input v-model.number="drafts[booth.booth].x" type="number" min="0" :max="mapExtent.width - booth.footprint.width" required /></label>
+                <label>Row (0–{{ mapExtent.height - booth.footprint.height }}) <input v-model.number="drafts[booth.booth].y" type="number" min="0" :max="mapExtent.height - booth.footprint.height" required /></label>
+              </div>
+              <button :disabled="busy || booth.calls.length || booth.queues.some((queue) => queue.pausedUntil)">Save location</button>
             </form>
             <form @submit.prevent="addRepresentative(booth.booth)">
               <label>Representative username <input v-model="drafts[booth.booth].representative" required /></label>
@@ -281,8 +322,21 @@
             </form>
             <button v-if="booth.meetingLinkSaved" type="button" :disabled="busy"
               @click="setBoothMeetingLink(booth.booth, '')">Remove meeting link</button>
-            <p class="hint">Representatives need their own registered accounts.</p>
-          </div>
+            <div class="booth-delete">
+              <button v-if="pendingDeleteBoothId !== booth.booth" type="button" class="danger-button"
+                :disabled="busy"
+                @click="pendingDeleteBoothId = booth.booth">Delete booth</button>
+              <div v-else class="delete-confirmation">
+                <p>Delete {{ booth.name }}? Its call and invitations will end.</p>
+                <button type="button" class="danger-button" :disabled="busy" @click="deleteBooth(booth.booth)">Confirm delete</button>
+                <button type="button" :disabled="busy" @click="pendingDeleteBoothId = null">Cancel</button>
+              </div>
+              <p v-if="booth.calls.length || booth.queues.some((queue) => queue.pausedUntil)" class="hint">End the call before moving.</p>
+            </div>
+            </div>
+          </details>
+            </div>
+          </details>
         </article>
         </section>
         </div>

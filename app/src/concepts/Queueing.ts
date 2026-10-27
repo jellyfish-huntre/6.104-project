@@ -152,6 +152,12 @@ export class QueueingConcept {
     return {};
   }
 
+  async discard({ target }: { target: string }) {
+    await this.queues.deleteOne({ _id: target });
+    await this.requests.deleteMany({ target });
+    return {};
+  }
+
   async _status({ target }: { target: string }) {
     const queue = await this.queues.findOne({ _id: target });
     if (!queue || (queue.pausedUntil && queue.pausedUntil <= this.#timestamp())) return [];

@@ -48,6 +48,12 @@ open(target: Target) : returns ()
   then
     refuses ALREADY_OPEN "This queue is already open."
 
+discard(target: Target) : returns ()
+  where a queue or requests may exist at target
+  then
+    remove the queue and all requests at target, if present
+    returns
+
 setAccepting(target: Target, accepting: Flag) : returns ()
   where an unpaused queue exists
   then

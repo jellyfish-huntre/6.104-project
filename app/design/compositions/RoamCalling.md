@@ -68,6 +68,11 @@ creating a second booth call. Switching from OPEN_GROUP to INVITE_ONLY requires
 a different external meeting URL. The old group URL may still work outside
 Roam, so the host must close or restrict the old meeting with the video
 provider. Opening directly in INVITE_ONLY mode also opens the booth queue.
+An authenticated person who is not the host
+[cannot change the mode](reaction:Roam.ChangeCallModeNotHost) or
+[close the call](reaction:Roam.CloseCallNotHost).
+An expired or missing session is [refused for a mode change](reaction:Roam.ChangeCallModeNoSession)
+and [for call closure](reaction:Roam.CloseCallNoSession).
 Switching to INVITE_ONLY opens the booth queue; switching back to
 OPEN_GROUP closes that queue and cancels outstanding invitations, after the
 host is warned that waiting visitors will lose their requests. The UI names
@@ -90,6 +95,10 @@ Roam.OpenCall at /calls/open
 Roam.OpenInviteCall at /calls/open-invite
 Roam.ResumeInviteCall at /calls/resume-invite
 Roam.GetBoothMeetingLink at /booths/meeting-link
+Roam.ChangeCallModeNotHost at /calls/mode
+Roam.ChangeCallModeNoSession at /calls/mode
+Roam.CloseCallNotHost at /calls/close
+Roam.CloseCallNoSession at /calls/close
 Roam.OpenCallNotRepresentative at /calls/open
 Roam.OpenCallOutside at /calls/open
 Roam.OpenCallAbsent at /calls/open
@@ -166,6 +175,12 @@ An assigned representative at the booth sees the ordered waiting and invited lis
 the list, and may [remove a waiting or invited visitor](reaction:Roam.RemoveFromQueue).
 An unassigned person [cannot read the booth queue](reaction:Roam.GetBoothQueueNotRepresentative)
 or [remove someone from it](reaction:Roam.RemoveFromQueueNotRepresentative).
+An unassigned person also
+[cannot stop requests](reaction:Roam.SetQueueAcceptingNotRepresentative) or
+[invite a visitor](reaction:Roam.InviteNextNotRepresentative).
+An expired or missing session is
+[refused when changing queue acceptance](reaction:Roam.SetQueueAcceptingNoSession)
+or [inviting](reaction:Roam.InviteNextNoSession).
 Removal is visible to that visitor. It prevents any future link retrieval in
 Roam but cannot retract a link already received. The host may
 [invite the next one to three waiting visitors](reaction:Roam.InviteNext),
@@ -195,9 +210,13 @@ Roam.GuestMyQueueStatus at /queues/guest-mine
 Roam.GetBoothQueue at /queues/booth
 Roam.GetBoothQueueNotRepresentative at /queues/booth
 Roam.SetQueueAccepting at /queues/accepting
+Roam.SetQueueAcceptingNotRepresentative at /queues/accepting
+Roam.SetQueueAcceptingNoSession at /queues/accepting
 Roam.RemoveFromQueue at /queues/remove
 Roam.RemoveFromQueueNotRepresentative at /queues/remove
 Roam.InviteNext at /queues/invite-next
+Roam.InviteNextNotRepresentative at /queues/invite-next
+Roam.InviteNextNoSession at /queues/invite-next
 Roam.ClaimInvitation at /calls/claim-invitation
 Roam.ClaimInvitationNotInvited at /calls/claim-invitation
 Roam.GuestClaimInvitation at /calls/guest-claim-invitation

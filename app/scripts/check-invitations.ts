@@ -26,6 +26,10 @@ function denied(result: { status: number; body: Record<string, any> }, label: st
   if (result.status === 200 && !result.body.error) throw new Error(`${label} unexpectedly succeeded`);
 }
 
+function forbidden(result: { status: number; body: Record<string, any> }, label: string) {
+  if (result.status !== 403) throw new Error(`${label} should be forbidden: ${JSON.stringify(result)}`);
+}
+
 const organizer = actor(), rep = actor(), student = actor(), outsider = actor(), guest = actor();
 const token = crypto.randomUUID();
 for (const [send, username] of [[organizer, `org_${suffix}`], [rep, `rep_${suffix}`],
@@ -49,6 +53,26 @@ const { call } = ok(await rep("/calls/open-invite", { booth, joinUrl: "https://m
 const page = ok(await student("/fairs/page", { fair }), "read public page").page;
 if (page.booths[0].calls[0].mode !== "INVITE_ONLY" || page.booths[0].queues.length !== 1 ||
   JSON.stringify(page).includes("invite-one")) throw new Error("The public fair page exposed the link or hid the queue");
+forbidden(await outsider("/calls/mode", {
+  call, mode: "OPEN_GROUP", joinUrl: "https://meet.example/outsider",
+}), "outsider changes call mode");
+forbidden(await outsider("/calls/close", { call }), "outsider closes call");
+forbidden(await outsider("/queues/accepting", { booth, accepting: false }), "outsider closes queue");
+forbidden(await outsider("/queues/invite-next", { booth }), "outsider invites a visitor");
+for (const [path, input] of [
+  ["/calls/mode", { call, mode: "OPEN_GROUP", joinUrl: "https://meet.example/anonymous" }],
+  ["/calls/close", { call }],
+  ["/queues/accepting", { booth, accepting: false }],
+  ["/queues/invite-next", { booth }],
+] as const) {
+  const result = await guest(path, input);
+  if (result.status !== 401) throw new Error(`${path} without a session should require sign-in: ${JSON.stringify(result)}`);
+}
+const afterDeniedControls = ok(await student("/fairs/page", { fair }), "read call after denied controls").page.booths[0];
+if (afterDeniedControls.calls[0]?.call !== call || afterDeniedControls.calls[0]?.mode !== "INVITE_ONLY" ||
+  afterDeniedControls.queues[0]?.accepting !== true) {
+  throw new Error("A refused representative control changed the call or queue");
+}
 const representativeRequest = await rep("/queues/join", { booth });
 if (representativeRequest.status !== 403) throw new Error("Representative requested a turn at their own booth");
 ok(await student("/queues/join", { booth }), "student joins queue");
@@ -67,7 +91,7 @@ const afterInvite = ok(await rep("/queues/booth", { booth }), "read invited rost
 if (afterInvite.length !== 2 || !afterInvite[0].invitedUntil || afterInvite[1].invitedUntil) {
   throw new Error(`Invited visitor is missing from the host roster: ${JSON.stringify(afterInvite)}`);
 }
-denied(await outsider("/calls/claim-invitation", { booth }), "outsider claims invitation");
+forbidden(await outsider("/calls/claim-invitation", { booth }), "outsider claims invitation");
 denied(await student("/calls/join", { booth }), "student bypasses invite through group route");
 const claimed = ok(await student("/calls/claim-invitation", { booth }), "student claims invitation");
 if (claimed.joinUrl !== "https://meet.example/invite-one") throw new Error("Student received the wrong link");
@@ -76,7 +100,7 @@ denied(await outsider("/queues/join", { booth }), "new request while closed");
 const second = ok(await rep("/queues/invite-next", { booth }), "invite guest while closed");
 if (second.visitor !== guestPerson) throw new Error("Existing request was lost when joining closed");
 ok(await rep("/queues/remove", { booth, visitor: guestPerson }), "remove invited guest");
-denied(await guest("/calls/guest-claim-invitation", { code, booth, token }), "removed guest claims invitation");
+forbidden(await guest("/calls/guest-claim-invitation", { code, booth, token }), "removed guest claims invitation");
 ok(await rep("/fairs/move", { destination: { x: 0, y: 0 } }), "rep leaves booth");
 const paused = ok(await student("/fairs/page", { fair }), "read paused queue").page.booths[0];
 if (paused.calls.length || !paused.queues[0]?.pausedUntil) throw new Error("Host departure did not pause the queue");
@@ -91,6 +115,8 @@ const newCall = resumed.calls[0].call;
 ok(await rep("/calls/close", { call: newCall }), "close invite call and queue");
 const closed = ok(await student("/fairs/page", { fair }), "read closed queue").page.booths[0];
 if (closed.calls.length || closed.queues.length) throw new Error("Manual close left the queue open");
+forbidden(await student("/calls/claim-invitation", { booth }), "stale invitation after call closure");
+forbidden(await guest("/calls/guest-claim-invitation", { code, booth, token }), "stale guest invitation after call closure");
 const group = ok(await rep("/calls/open", { booth, joinUrl: "https://meet.example/group" }), "open group call");
 ok(await rep("/calls/mode", {
   call: group.call, mode: "INVITE_ONLY", joinUrl: "https://meet.example/fresh-invite",
@@ -113,4 +139,5 @@ const backToGroup = ok(await student("/fairs/page", { fair }), "read group mode"
 if (backToGroup.calls[0]?.mode !== "OPEN_GROUP" || backToGroup.queues.length) {
   throw new Error("Switching to open group did not clear the queue");
 }
-console.log("Invitation HTTP flow passed", { fair, booth, call, checked: "order, representative refusal, access, guest departure, pause, resume, close, mode switch" });
+forbidden(await student("/calls/claim-invitation", { booth }), "stale invitation after mode switch");
+console.log("Invitation HTTP flow passed", { fair, booth, call, checked: "order, access, stale invitations, guest departure, pause, resume, close, mode switch" });

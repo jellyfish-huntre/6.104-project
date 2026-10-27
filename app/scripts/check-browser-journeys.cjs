@@ -16,6 +16,12 @@ async function post(path, body) {
   return result;
 }
 function assert(condition, message) { if (!condition) throw new Error(message); }
+async function walk(page, key, durationMs) {
+  await page.keyboard.down(key);
+  await page.waitForTimeout(durationMs);
+  await page.keyboard.up(key);
+  await page.waitForTimeout(260);
+}
 const browser = await chromium.launch({ headless: true });
 try {
   await post('/auth/register', { username, password });
@@ -39,8 +45,8 @@ try {
   await host.getByRole('button', { name: /Enter the fair/ }).click();
   await host.locator('.map-avatar.own[aria-label*="(0, 0)"]').waitFor();
   await host.getByRole('button', { name: 'Select Robotics booth' }).click();
-  await host.keyboard.press('ArrowDown');
-  await host.locator('.map-avatar.own[aria-label*="(0, 1)"]').waitFor();
+  await walk(host, 'ArrowDown', 430);
+  await host.getByRole('button', { name: 'Open group call here' }).waitFor();
   await host.getByRole('button', { name: 'Open group call here' }).click();
   await host.getByRole('button', { name: 'Close call', exact: true }).waitFor();
   console.log('Host opened group call from the booth.');
@@ -53,8 +59,7 @@ try {
   await guest.getByRole('button', { name: /Enter the fair/ }).click();
   await guest.locator('.map-avatar.own[aria-label*="(0, 0)"]').waitFor();
   await guest.getByRole('button', { name: 'Select Robotics booth' }).click();
-  await guest.keyboard.press('ArrowDown');
-  await guest.locator('.map-avatar.own[aria-label*="(0, 1)"]').waitFor();
+  await walk(guest, 'ArrowDown', 430);
   await guest.getByRole('button', { name: 'Open video call' }).waitFor();
   if (process.env.SCREENSHOT_DIR) await guest.screenshot({ path: `${process.env.SCREENSHOT_DIR}/open-group.png` });
   const groupPopupPromise = guest.waitForEvent('popup');
@@ -72,8 +77,7 @@ try {
   await guest.getByRole('button', { name: 'Request a turn' }).waitFor({ timeout: 12000 });
   await guest.getByRole('button', { name: 'Request a turn' }).click();
   await guest.getByText('You are waiting. You can explore other booths.').waitFor();
-  await guest.keyboard.press('ArrowUp');
-  await guest.locator('.map-avatar.own[aria-label*="(0, 0)"]').waitFor();
+  await walk(guest, 'ArrowUp', 430);
   assert(await guest.getByRole('region', { name: 'Your waiting requests' }).count() === 1, 'Waiting request disappeared while exploring');
   await host.getByRole('button', { name: 'Stop new requests' }).click();
   await guest.getByText('You are waiting. You can explore other booths.').waitFor();
@@ -114,6 +118,7 @@ try {
     await mongo.close();
   }
   await guest.getByRole('button', { name: 'Open booth directory' }).click();
+  await guest.locator('.directory-card .booth-entry > summary').first().click();
   await guest.getByRole('button', { name: 'Show on map' }).click();
   const desktopPanel = await guest.locator('.booth-detail').boundingBox();
   assert(desktopPanel && desktopPanel.y >= 64 && desktopPanel.y + desktopPanel.height <= 900, 'Desktop booth panel is clipped');

@@ -15,6 +15,8 @@ test("opens one call per booth and host, shares its URL only through join, and c
     .rejects.toBeInstanceOf(InvalidCallUrl);
   const { call } = await calls.open({ host: "rep", place: "booth", joinUrl: "https://meet.example/abc", mode: "OPEN_GROUP" });
   expect(await calls._openAt({ place: "booth" })).toEqual([{ call, place: "booth", host: "rep", mode: "OPEN_GROUP" }]);
+  expect(await calls._isHost({ host: "rep", call })).toEqual({ hosting: true });
+  expect(await calls._isHost({ host: "student", call })).toEqual({ hosting: false });
   expect(await calls.join({ person: "student", call })).toEqual({ joinUrl: "https://meet.example/abc" });
   await expect(calls.open({ host: "other", place: "booth", joinUrl: "https://meet.example/other", mode: "OPEN_GROUP" }))
     .rejects.toBeInstanceOf(PlaceBusy);
@@ -22,6 +24,7 @@ test("opens one call per booth and host, shares its URL only through join, and c
     .rejects.toBeInstanceOf(HostBusy);
   await expect(calls.close({ host: "student", call })).rejects.toBeInstanceOf(NoSuchCall);
   expect(await calls.close({ host: "rep", call })).toEqual({ place: "booth", mode: "OPEN_GROUP" });
+  expect(await calls._isHost({ host: "rep", call })).toEqual({ hosting: false });
   await expect(calls.join({ person: "student", call })).rejects.toBeInstanceOf(NoSuchCall);
 });
 
@@ -69,6 +72,23 @@ test("retains an invite-only link when the host leaves and resumes it for an ass
   expect(await calls._suspendedAt({ place: "resume-booth" })).toEqual({ suspended: false });
   await calls.close({ host: "returning-rep", call: resumed.call });
   await expect(calls.resume({ host: "returning-rep", place: "resume-booth" })).rejects.toBeInstanceOf(NoSuchCall);
+});
+
+test("discarding a booth clears active and suspended links", async () => {
+  const active = await calls.open({
+    host: "active-host", place: "delete-active", joinUrl: "https://meet.example/active", mode: "OPEN_GROUP",
+  });
+  const paused = await calls.open({
+    host: "paused-host", place: "delete-paused", joinUrl: "https://meet.example/paused", mode: "INVITE_ONLY",
+  });
+  await calls.suspend({ host: "paused-host", call: paused.call });
+  await calls.discardAt({ place: "delete-active" });
+  await calls.discardAt({ place: "delete-paused" });
+  expect(await calls._isOpen({ place: "delete-active" })).toEqual({ open: false });
+  expect(await calls._suspendedAt({ place: "delete-paused" })).toEqual({ suspended: false });
+  await expect(calls.join({ person: "visitor", call: active.call })).rejects.toBeInstanceOf(NoSuchCall);
+  await expect(calls.resume({ host: "paused-host", place: "delete-paused" })).rejects.toBeInstanceOf(NoSuchCall);
+  await expect(calls.discardAt({ place: "delete-active" })).resolves.toEqual({});
 });
 
 test("does not replace a suspended call when another host is busy", async () => {

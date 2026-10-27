@@ -109,6 +109,12 @@ close(host: Person, call: Call) : returns (place: Place, mode: Mode)
   then
     refuses NOT_FOUND "That call is not found."
 
+discardAt(place: Place) : returns ()
+  where a call or suspended call may exist at place
+  then
+    remove the active and suspended call at place, if present
+    returns
+
 suspend(host: Person, call: Call) : returns (place: Place)
   where an INVITE_ONLY call exists and host opened it
   then
@@ -127,6 +133,9 @@ _openAt(place: Place) : optional (call: Call, place: Place, host: Person, mode: 
 
 _hostedBy(host: Person) : optional (call: Call, place: Place, mode: Mode)
   Gets the host's open call, and no row when the host has none.
+
+_isHost(host: Person, call: Call) : one (hosting: Flag)
+  Answers whether this person hosts the open call without returning its link.
 
 _isOpen(place: Place) : one (open: Flag)
   Answers whether a call is open at the place.

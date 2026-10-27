@@ -20,14 +20,38 @@ Roam.ListPublicFairs at /fairs/public
 
 The [fair page](former:Roam.FairPage) already contains booth footprints,
 descriptions, and representatives. The student view lays those footprints on
-the fair's 10 by 10 grid; selecting any cell occupied by a booth reveals that
+the fair's current grid extent, initially 10 by 10; selecting any cell occupied by a booth reveals that
 booth's details. Empty cells remain visible, including the entrance at (0, 0).
-A triangular avatar starts at the entrance and moves one cell per arrow-key or
-WASD press, staying within the grid and passing through booth areas. Entering a
-booth's area shows its details. Navigating records both guests and signed-in
-people so their colored triangular avatars are visible to others in the fair.
+A walking avatar starts at the entrance. Arrow keys or WASD move it smoothly
+through fractional cell positions. Signed-in people [walk](reaction:Roam.MoveFree)
+and guests [walk](reaction:Roam.GuestMoveFree) around the solid footprint of
+plants and furniture. Each booth's stable visual variant supplies the visible
+furniture positions and the matching collision shapes. [Blocked signed-in moves](reaction:Roam.MoveFreeBlocked),
+[blocked guest moves](reaction:Roam.GuestMoveFreeBlocked), and
+[unsigned movement](reaction:Roam.MoveFreeNoSession) receive explicit errors.
+The older one-cell movement endpoints remain available, with
+[blocked signed-in steps](reaction:Roam.MoveBlocked),
+[blocked guest steps](reaction:Roam.GuestMoveBlocked), and
+[unsigned steps](reaction:Roam.MoveNoSession) handled explicitly. Entering a booth's area
+shows its details. Navigating records both guests and signed-in people so their
+colored avatars are visible to others in the fair.
 A guest's private token stays in their browser; the public map shows only a
 pseudonym. Guest presence expires after inactivity. Existing fair links still
 open directly.
 When the avatar moves out of a booth, that booth is no longer highlighted and
 its details panel closes. Moving into another booth selects that booth instead.
+When a host walks out of a booth, an open group call
+[closes](reaction:Roam.FreeHostExitsBoothClosesCall), an invite-only call
+[pauses](reaction:Roam.FreeHostExitsInviteBoothPausesQueue), and a returning
+representative [resumes it](reaction:Roam.FreeReturnedRepresentativeResumesInviteCall).
+
+```endpoints
+Roam.MoveBlocked at /fairs/move
+Roam.MoveNoSession at /fairs/move
+Roam.GuestMoveBlocked at /fairs/guest-move
+Roam.MoveFree at /fairs/move-free
+Roam.MoveFreeBlocked at /fairs/move-free
+Roam.MoveFreeNoSession at /fairs/move-free
+Roam.GuestMoveFree at /fairs/guest-move-free
+Roam.GuestMoveFreeBlocked at /fairs/guest-move-free
+```

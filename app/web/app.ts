@@ -1,6 +1,7 @@
 import { computed, createApp, nextTick, onMounted, onUnmounted, reactive, ref, watch } from "vue/dist/vue.esm-bundler.js";
 import { createHttpClient } from "@mit-sdg/sync-engine-http/client";
 import type { RoamWireHttp } from "../generated/wire.ts";
+import { boothContains, boothLayout, defaultMapExtent, mapObstacles, plantCells, visibleHallDecor, walkableSegment } from "../src/map-geometry.ts";
 
 const client = createHttpClient<RoamWireHttp>({ baseUrl: "/api" });
 type FairPage = RoamWireHttp["/fairs/page"]["output"]["page"];
@@ -15,6 +16,13 @@ function messageFor(error: string) {
     case "FORBIDDEN": return "Move into this booth, or ask the organizer to assign you as its representative.";
     default: return "The request did not complete. Try again.";
   }
+}
+
+function displayDescription(description: string) {
+  const text = description.trim();
+  const normalized = text.replace(/\s+/g, " ").toLowerCase();
+  return normalized === "representatives can open a video call here. visitors can walk into this booth to get its link."
+    ? "" : text;
 }
 
 function pointsToRoam(value: string) {
@@ -39,8 +47,8 @@ const avatarPalette = [
   "#1d4ed8", "#dc2626", "#15803d", "#9333ea", "#c2410c", "#0f766e",
   "#be185d", "#7c2d12", "#4d7c0f", "#6d28d9", "#0369a1", "#b45309",
 ];
-const hallPlantCells = [{ x: 3, y: 3 }, { x: 6, y: 3 }, { x: 3, y: 6 }, { x: 6, y: 6 }];
 const walkStepMs = 420;
+const walkSpeed = 2.2;
 const movementSteps: Record<string, [number, number]> = {
   arrowup: [0, -1], w: [0, -1],
   arrowdown: [0, 1], s: [0, 1],
@@ -73,21 +81,17 @@ createApp({
     const publicQuery = ref("");
     const boothQuery = ref("");
     const selectedBoothId = ref<string | null>(null);
+    const pendingDeleteBoothId = ref<string | null>(null);
     const boothPanelExpanded = ref(true);
     const directoryOpen = ref(false);
-    const showHitboxes = ref(true);
-    const savedMapStyle = window.localStorage.getItem("roam-map-style");
-    const mapStyle = ref<"pixel" | "kenney">(savedMapStyle === "kenney" ? "kenney" : "pixel");
-    function chooseMapStyle(style: "pixel" | "kenney") {
-      mapStyle.value = style;
-      window.localStorage.setItem("roam-map-style", style);
-    }
     const boothName = ref("");
     const boothDescription = ref("");
     const boothMeetingUrl = ref("");
-    const area = reactive({ x: 1, y: 1, width: 2, height: 2 });
+    const boothSize = ref<"small" | "medium" | "large">("medium");
     const avatar = reactive({ x: 0, y: 0 });
     const mapViewport = ref<HTMLElement | null>(null);
+    const minimapViewport = reactive({ left: 0, top: 0, width: 100, height: 100 });
+    const windowWidth = ref(window.innerWidth);
     const joinedFair = ref(false);
     const moving = ref(false);
     const people = ref<Array<{ person: string; position: { x: number; y: number } }>>([]);
@@ -97,7 +101,11 @@ createApp({
     const walkDurationByPerson = reactive<Record<string, number>>({});
     const walkTimers = new Map<string, ReturnType<typeof setTimeout>>();
     const heldMovementKeys = new Map<string, [number, number]>();
-    let movementLoopActive = false;
+    let movementFrame = 0;
+    let previousFrame = 0;
+    let lastSyncAt = 0;
+    let syncInFlight = false;
+    const acknowledged = reactive({ x: 0, y: 0 });
     const callUrl = ref("");
     const newCallMode = ref<"OPEN_GROUP" | "INVITE_ONLY">("OPEN_GROUP");
     const modeUrl = ref("");
@@ -111,8 +119,9 @@ createApp({
     const joinedMode = ref("");
     const callError = ref<{ booth: string; message: string } | null>(null);
     let refreshTimer: ReturnType<typeof setInterval> | undefined;
+    let presenceTimer: ReturnType<typeof setInterval> | undefined;
     let countdownTimer: ReturnType<typeof setInterval> | undefined;
-    const drafts = reactive<Record<string, { name: string; description: string; representative: string; meetingUrl: string }>>({});
+    const drafts = reactive<Record<string, { name: string; description: string; representative: string; meetingUrl: string; x: number; y: number }>>({});
     const status = ref("");
     const busy = ref(false);
     watch(busy, (started) => { if (started) status.value = ""; }, { flush: "sync" });
@@ -124,47 +133,56 @@ createApp({
       `${booth.name} ${booth.description} ${booth.representatives.map((rep) => rep.representative).join(" ")}`
         .toLowerCase().includes(boothQuery.value.trim().toLowerCase()),
     ) ?? []);
-    const boothAreas = computed(() => fair.value?.booths.map((booth, index) => {
-      const furnitureRow = Math.floor(booth.footprint.height * 0.65);
+    const mapExtent = computed(() => fair.value?.extent ?? defaultMapExtent);
+    const mapStyle = computed(() => ({
+      width: `${Math.max(90, windowWidth.value / 10) * mapExtent.value.width}px`,
+      height: `${Math.max(90, windowWidth.value / 10) * mapExtent.value.height}px`,
+      "--map-columns": String(mapExtent.value.width),
+      "--map-rows": String(mapExtent.value.height),
+    }));
+    const boothAreas = computed(() => fair.value?.booths.map((booth) => {
+      const layout = boothLayout({ ...booth.footprint, booth: booth.booth });
       return {
         ...booth,
         style: {
-          left: `${booth.footprint.x * 10}%`,
-          top: `${booth.footprint.y * 10}%`,
-          width: `${booth.footprint.width * 10}%`,
-          height: `${booth.footprint.height * 10}%`,
-          "--area-hue": String((index * 59 + 220) % 360),
-          "--furniture-top": `${(furnitureRow + 0.2) * 100 / booth.footprint.height}%`,
-          "--furniture-height": `${60 / booth.footprint.height}%`,
+          left: `${booth.footprint.x * 100 / mapExtent.value.width}%`,
+          top: `${booth.footprint.y * 100 / mapExtent.value.height}%`,
+          width: `${booth.footprint.width * 100 / mapExtent.value.width}%`,
+          height: `${booth.footprint.height * 100 / mapExtent.value.height}%`,
         },
+        variant: layout.variant,
+        furnishings: layout.furnishings.map((item, index) => ({
+          ...item,
+          key: `${item.kind}-${index}`,
+          style: {
+            left: `${item.x * 100 / booth.footprint.width}%`,
+            top: `${item.y * 100 / booth.footprint.height}%`,
+            width: `${item.width * 100 / booth.footprint.width}%`,
+            height: `${item.height * 100 / booth.footprint.height}%`,
+          },
+        })),
         roomy: booth.footprint.width > 1 && booth.footprint.height > 1,
       };
     }) ?? []);
-    const hallPlants = computed(() => hallPlantCells.filter(({ x, y }) =>
+    const hallPlants = computed(() => plantCells.filter(({ x, y }) =>
       !fair.value?.booths.some(({ footprint }) =>
         x >= footprint.x && x < footprint.x + footprint.width &&
         y >= footprint.y && y < footprint.y + footprint.height,
       ),
-    ).map(({ x, y }) => ({ x, y, style: { left: `${(x + 0.5) * 10}%`, top: `${(y + 0.5) * 10}%` } })));
-    const blockedCells = computed(() => {
-      const blocked = new Set(hallPlants.value.map(({ x, y }) => `${x},${y}`));
-      for (const booth of fair.value?.booths ?? []) {
-        const { x, y, width, height } = booth.footprint;
-        if (width < 2 || height < 2) continue;
-        const furnitureRow = y + Math.floor(height * 0.65);
-        for (let offset = 0; offset < width; offset++) {
-          const avatarCenter = offset + 0.5;
-          if (avatarCenter + 0.2 >= width * 0.13 && avatarCenter - 0.2 <= width * 0.87) {
-            blocked.add(`${x + offset},${furnitureRow}`);
-          }
-        }
-      }
-      return blocked;
-    });
-    const hitboxCells = computed(() => [...blockedCells.value].map((key) => {
-      const [x, y] = key.split(",").map(Number);
-      return { key, style: { left: `${x * 10}%`, top: `${y * 10}%` } };
-    }));
+    ).map(({ x, y }) => ({ x, y, style: {
+      left: `${(x + 0.5) * 100 / mapExtent.value.width}%`,
+      top: `${(y + 0.5) * 100 / mapExtent.value.height}%`,
+      width: `${35 / mapExtent.value.width}%`,
+    } })));
+    const hallFurniture = computed(() => visibleHallDecor(fair.value?.booths.map(({ footprint }) => footprint) ?? [])
+      .map((item) => ({ ...item, style: {
+        left: `${(item.x + 0.5) * 100 / mapExtent.value.width}%`,
+        top: `${(item.y + 0.5) * 100 / mapExtent.value.height}%`,
+        width: `${item.width * 100 / mapExtent.value.width}%`,
+        height: `${item.height * 100 / mapExtent.value.height}%`,
+      } })));
+    const obstacles = computed(() => mapObstacles(fair.value?.booths.map((booth) =>
+      ({ ...booth.footprint, booth: booth.booth })) ?? []));
     const selectedBooth = computed(() =>
       fair.value?.booths.find((booth) => booth.booth === selectedBoothId.value) ?? null,
     );
@@ -183,10 +201,7 @@ createApp({
       return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
     };
     const insideSelectedBooth = computed(() => selectedBooth.value ?
-      avatar.x >= selectedBooth.value.footprint.x &&
-      avatar.x < selectedBooth.value.footprint.x + selectedBooth.value.footprint.width &&
-      avatar.y >= selectedBooth.value.footprint.y &&
-      avatar.y < selectedBooth.value.footprint.y + selectedBooth.value.footprint.height : false);
+      boothContains(selectedBooth.value.footprint, acknowledged) : false);
     const representsSelectedBooth = computed(() => !!account.value &&
       !!selectedBooth.value?.representatives.some((rep) => rep.representative === account.value));
     const avatarColors = computed(() => {
@@ -225,12 +240,12 @@ createApp({
           facing: facingByPerson[person] ?? "down",
           walking: walkingByPerson[person] ?? false,
           style: {
-            left: `${(x + 0.5) * 10}%`,
-            top: `${(y + 0.5) * 10}%`,
+            left: `${(x + 0.5) * 100 / mapExtent.value.width}%`,
+            top: `${(y + 0.5) * 100 / mapExtent.value.height}%`,
             "--avatar-color": avatarColors.value[person] ?? avatarPalette[0]!,
             "--stack-x": `${(stack % 3 - 1) * 10}px`,
             "--stack-y": `${Math.floor(stack / 3) * 6}px`,
-            "--walk-duration": `${walkDurationByPerson[person] ?? walkStepMs}ms`,
+            "--walk-duration": `${own ? 0 : walkDurationByPerson[person] ?? walkStepMs}ms`,
           },
         };
       });
@@ -261,6 +276,11 @@ createApp({
 
     function clearHeldMovement() {
       heldMovementKeys.clear();
+      if (movementFrame) cancelAnimationFrame(movementFrame);
+      movementFrame = 0;
+      previousFrame = 0;
+      moving.value = syncInFlight;
+      if (ownPerson.value) walkingByPerson[ownPerson.value] = false;
     }
     watch(accountPanelOpen, (open) => {
       if (open) clearHeldMovement();
@@ -270,19 +290,47 @@ createApp({
       const viewport = mapViewport.value;
       const map = viewport?.querySelector<HTMLElement>(".fair-map");
       if (!viewport || !map) return;
-      const left = (avatar.x + 0.5) * map.clientWidth / 10 - viewport.clientWidth / 2;
-      const top = (avatar.y + 0.5) * map.clientHeight / 10 - viewport.clientHeight / 2;
-      const behavior = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
+      const left = (avatar.x + 0.5) * map.clientWidth / mapExtent.value.width - viewport.clientWidth / 2;
+      const top = (avatar.y + 0.5) * map.clientHeight / mapExtent.value.height - viewport.clientHeight / 2;
+      const behavior = moving.value || window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
       viewport.scrollTo({ left, top, behavior });
+      updateMinimapViewport();
     }
-    watch(() => [avatar.x, avatar.y, joinedFair.value], () => {
+    function updateMinimapViewport() {
+      const viewport = mapViewport.value;
+      const map = viewport?.querySelector<HTMLElement>(".fair-map");
+      if (!viewport || !map) return;
+      minimapViewport.left = viewport.scrollLeft * 100 / map.clientWidth;
+      minimapViewport.top = viewport.scrollTop * 100 / map.clientHeight;
+      minimapViewport.width = Math.min(100, viewport.clientWidth * 100 / map.clientWidth);
+      minimapViewport.height = Math.min(100, viewport.clientHeight * 100 / map.clientHeight);
+    }
+    function resizeMap() {
+      windowWidth.value = window.innerWidth;
+      void nextTick(updateMinimapViewport);
+    }
+    function panFromMinimap(event: MouseEvent) {
+      const viewport = mapViewport.value;
+      const map = viewport?.querySelector<HTMLElement>(".fair-map");
+      const button = event.currentTarget as HTMLElement;
+      if (!viewport || !map) return;
+      const bounds = button.getBoundingClientRect();
+      const x = event.detail === 0 ? 0.5 : Math.max(0, Math.min(1, (event.clientX - bounds.left) / bounds.width));
+      const y = event.detail === 0 ? 0.5 : Math.max(0, Math.min(1, (event.clientY - bounds.top) / bounds.height));
+      viewport.scrollTo({
+        left: x * map.clientWidth - viewport.clientWidth / 2,
+        top: y * map.clientHeight - viewport.clientHeight / 2,
+        behavior: "smooth",
+      });
+    }
+    watch(() => [avatar.x, avatar.y, joinedFair.value, mapExtent.value.width, mapExtent.value.height], () => {
       void nextTick(keepAvatarInView);
     });
 
     function openAccountPanel(intent: "create" | "sign-in") {
       accountPanelIntent.value = intent;
       accountPanelOpen.value = true;
-      if (intent === "sign-in") mode.value = "sign-in";
+      if (!account.value) mode.value = intent === "sign-in" ? "sign-in" : "register";
     }
 
     async function loadFair(id: string, silent = false) {
@@ -299,8 +347,10 @@ createApp({
           clearHeldMovement();
           avatar.x = 0;
           avatar.y = 0;
+          Object.assign(acknowledged, { x: 0, y: 0 });
           people.value = [];
           directoryOpen.value = false;
+          pendingDeleteBoothId.value = null;
           boothPanelExpanded.value = true;
           for (const timer of walkTimers.values()) clearTimeout(timer);
           walkTimers.clear();
@@ -317,6 +367,8 @@ createApp({
             description: booth.description,
             representative: drafts[booth.booth]?.representative ?? "",
             meetingUrl: drafts[booth.booth]?.meetingUrl ?? "",
+            x: booth.footprint.x,
+            y: booth.footprint.y,
           };
         }
         if (!silent) status.value = "";
@@ -337,13 +389,17 @@ createApp({
       for (const { person, position } of result.presence.people) {
         const before = prior.get(person);
         if (!before || person === ownPerson.value || (before.x === position.x && before.y === position.y)) continue;
-        const distance = Math.abs(position.x - before.x) + Math.abs(position.y - before.y);
-        markWalking(person, position.x - before.x, position.y - before.y, Math.min(900, walkStepMs * distance));
+        const distance = Math.hypot(position.x - before.x, position.y - before.y);
+        markWalking(person, position.x - before.x, position.y - before.y,
+          Math.min(450, Math.max(100, distance * 450)));
       }
       people.value = result.presence.people;
       const own = people.value.find((person) => person.person === ownPerson.value);
       joinedFair.value = !!own;
-      if (own && !moving.value) { avatar.x = own.position.x; avatar.y = own.position.y; }
+      if (own && !moving.value) {
+        Object.assign(acknowledged, own.position);
+        avatar.x = own.position.x; avatar.y = own.position.y;
+      }
     }
 
     async function enterFair(id: string) {
@@ -359,6 +415,7 @@ createApp({
       if ("error" in result) { status.value = messageFor(result.error); return; }
       joinedFair.value = true;
       avatar.x = 0; avatar.y = 0;
+      Object.assign(acknowledged, { x: 0, y: 0 });
       await refreshPresence(id);
     }
 
@@ -369,6 +426,7 @@ createApp({
       joinedFair.value = true;
       avatar.x = result.position.x;
       avatar.y = result.position.y;
+      Object.assign(acknowledged, result.position);
       await refreshPresence(id);
     }
 
@@ -423,6 +481,7 @@ createApp({
         }
         fair.value = null;
         selectedBoothId.value = null;
+        pendingDeleteBoothId.value = null;
         directoryOpen.value = false;
         boothPanelExpanded.value = true;
         joinedFair.value = false;
@@ -558,17 +617,15 @@ createApp({
       }
       busy.value = true;
       try {
-        const result = await client.booths.create({
+        const result = await client.booths["create-sized"]({
           fair: fair.value.fair,
-          footprint: { ...area },
+          size: boothSize.value,
           name: boothName.value.trim(),
           description: boothDescription.value.trim(),
           meetingUrl: boothMeetingUrl.value.trim(),
         });
         if ("error" in result) {
-          status.value = result.error === "CONFLICT"
-            ? "That booth area overlaps another booth."
-            : result.error === "NOT_FOUND"
+          status.value = result.error === "NOT_FOUND"
               ? "That fair was not found or you do not own it."
               : messageFor(result.error);
           return;
@@ -602,6 +659,49 @@ createApp({
         }
         await loadFair(fair.value.fair);
         status.value = "";
+      } catch { status.value = "Could not reach the server. Try again."; }
+      finally { busy.value = false; }
+    }
+
+    async function moveBooth(booth: string) {
+      const draft = drafts[booth];
+      if (!draft || !fair.value) return;
+      busy.value = true;
+      try {
+        const result = await client.booths.move({ booth, position: { x: draft.x, y: draft.y } });
+        if ("error" in result) {
+          status.value = result.error === "CONFLICT"
+            ? "That spot overlaps another booth, or this booth has a live or paused call."
+            : result.error === "INVALID_REQUEST"
+              ? "That booth would go outside the map or cover the entrance."
+              : result.error === "NOT_FOUND"
+                ? "That booth was not found or you do not own it."
+                : messageFor(result.error);
+          return;
+        }
+        await loadFair(fair.value.fair);
+        selectedBoothId.value = booth;
+        status.value = "Booth location updated.";
+      } catch { status.value = "Could not reach the server. Try again."; }
+      finally { busy.value = false; }
+    }
+
+    async function deleteBooth(booth: string) {
+      if (!fair.value || pendingDeleteBoothId.value !== booth) return;
+      busy.value = true;
+      try {
+        const result = await client.booths.delete({ booth });
+        if ("error" in result) {
+          status.value = result.error === "NOT_FOUND"
+              ? "That booth was not found or you do not own it."
+              : messageFor(result.error);
+          return;
+        }
+        pendingDeleteBoothId.value = null;
+        if (selectedBoothId.value === booth) selectedBoothId.value = null;
+        delete drafts[booth];
+        await loadFair(fair.value.fair, true);
+        status.value = "Booth deleted.";
       } catch { status.value = "Could not reach the server. Try again."; }
       finally { busy.value = false; }
     }
@@ -894,53 +994,94 @@ createApp({
       finally { busy.value = false; }
     }
 
-    async function moveOneTile(step: [number, number]) {
-      const x = avatar.x + step[0];
-      const y = avatar.y + step[1];
-      if (x < 0 || x > 9 || y < 0 || y > 9) return true;
-      if (blockedCells.value.has(`${x},${y}`)) return true;
-      if (!fair.value || !joinedFair.value || moving.value) return false;
-      const fairId = fair.value.fair;
-      const start = { x: avatar.x, y: avatar.y };
-      moving.value = true;
-      if (ownPerson.value) markWalking(ownPerson.value, step[0], step[1]);
-      avatar.x = x;
-      avatar.y = y;
-      try {
-        const destination = { x, y };
-        const result = account.value
-          ? await client.fairs.move({ destination })
-          : await client.fairs["guest-move"]({ token: guestToken, destination });
-        if ("error" in result) { avatar.x = start.x; avatar.y = start.y; status.value = messageFor(result.error); return false; }
-        if (fair.value?.fair !== fairId) return false;
-        await refreshPresence(fairId);
-        await loadFair(fairId, true);
-      } catch { avatar.x = start.x; avatar.y = start.y; status.value = "Could not reach the server. Try again."; return false; }
-      finally { moving.value = false; }
-      const booth = fair.value?.booths.find(({ footprint }) =>
-        x >= footprint.x && x < footprint.x + footprint.width &&
-        y >= footprint.y && y < footprint.y + footprint.height,
-      );
-      if (booth) selectBooth(booth.booth, false);
-      return true;
-    }
+    const distance = (a: { x: number; y: number }, b: { x: number; y: number }) =>
+      Math.hypot(a.x - b.x, a.y - b.y);
 
-    async function runMovementLoop() {
-      if (movementLoopActive) return;
-      movementLoopActive = true;
+    async function syncFreePosition() {
+      if (syncInFlight || !fair.value || !joinedFair.value || distance(avatar, acknowledged) < 0.015) return;
+      const fairId = fair.value.fair;
+      const before = { ...acknowledged };
+      const gap = distance(avatar, acknowledged);
+      // Key release may sync immediately after the prior update. Stay below the
+      // server's distance allowance even when almost no time has elapsed.
+      const elapsed = Math.max(0, (performance.now() - lastSyncAt) / 1000);
+      const fraction = Math.min(1, Math.min(0.28, 0.08 + 3 * elapsed) / gap);
+      const destination = {
+        x: Number((acknowledged.x + (avatar.x - acknowledged.x) * fraction).toFixed(3)),
+        y: Number((acknowledged.y + (avatar.y - acknowledged.y) * fraction).toFixed(3)),
+      };
+      syncInFlight = true;
+      moving.value = true;
+      lastSyncAt = performance.now();
       try {
-        while (heldMovementKeys.size && fair.value && !accountPanelOpen.value) {
-          const step = [...heldMovementKeys.values()].at(-1)!;
-          const started = performance.now();
-          if (!await moveOneTile(step)) { heldMovementKeys.clear(); break; }
-          const remaining = walkStepMs - (performance.now() - started);
-          if (heldMovementKeys.size && remaining > 0) {
-            await new Promise<void>((resolve) => setTimeout(resolve, remaining));
-          }
+        const result = account.value
+          ? await client.fairs["move-free"]({ destination })
+          : await client.fairs["guest-move-free"]({ token: guestToken, destination });
+        if (fair.value?.fair !== fairId) return;
+        if ("error" in result) {
+          avatar.x = before.x; avatar.y = before.y;
+          if (result.error !== "INVALID_REQUEST")
+            status.value = messageFor(result.error);
+          clearHeldMovement();
+          moving.value = false;
+          await refreshPresence(fairId);
+          return;
+        }
+        Object.assign(acknowledged, destination);
+        const oldBooth = fair.value.booths.find(({ footprint }) => boothContains(footprint, before));
+        const newBooth = fair.value.booths.find(({ footprint }) => boothContains(footprint, destination));
+        if (newBooth && newBooth.booth !== oldBooth?.booth) selectBooth(newBooth.booth, false);
+        if (oldBooth?.booth !== newBooth?.booth) await loadFair(fairId, true);
+      } catch {
+        if (fair.value?.fair === fairId) {
+          avatar.x = before.x; avatar.y = before.y;
+          status.value = "Could not reach the server. Try again.";
+          clearHeldMovement();
         }
       } finally {
-        movementLoopActive = false;
+        syncInFlight = false;
+        lastSyncAt = performance.now();
+        moving.value = heldMovementKeys.size > 0;
+        if (!heldMovementKeys.size && fair.value?.fair === fairId && distance(avatar, acknowledged) >= 0.015) {
+          setTimeout(() => void syncFreePosition(), 110);
+        }
       }
+    }
+
+    function movementTick(now: number) {
+      movementFrame = 0;
+      if (!heldMovementKeys.size || !fair.value || !joinedFair.value || accountPanelOpen.value) {
+        moving.value = syncInFlight;
+        return;
+      }
+      const delta = previousFrame ? Math.min(0.05, (now - previousFrame) / 1000) : 0;
+      previousFrame = now;
+      const direction = [...heldMovementKeys.values()].reduce((sum, step) =>
+        [sum[0] + step[0], sum[1] + step[1]] as [number, number], [0, 0] as [number, number]);
+      const magnitude = Math.hypot(...direction);
+      if (magnitude && distance(avatar, acknowledged) < 0.28) {
+        const stepLength = Math.min(walkSpeed * delta, 0.28 - distance(avatar, acknowledged));
+        const dx = direction[0] / magnitude * stepLength;
+        const dy = direction[1] / magnitude * stepLength;
+        const current = { x: avatar.x, y: avatar.y };
+        const diagonal = { x: current.x + dx, y: current.y + dy };
+        if (walkableSegment(current, diagonal, obstacles.value, mapExtent.value)) {
+          avatar.x = diagonal.x; avatar.y = diagonal.y;
+        } else {
+          const horizontal = { x: current.x + dx, y: current.y };
+          if (walkableSegment(current, horizontal, obstacles.value, mapExtent.value)) avatar.x = horizontal.x;
+          const vertical = { x: avatar.x, y: current.y + dy };
+          if (walkableSegment({ x: avatar.x, y: avatar.y }, vertical, obstacles.value, mapExtent.value)) avatar.y = vertical.y;
+        }
+        if (ownPerson.value) {
+          if (Math.abs(dx) > Math.abs(dy)) facingByPerson[ownPerson.value] = dx > 0 ? "right" : "left";
+          else facingByPerson[ownPerson.value] = dy > 0 ? "down" : "up";
+          walkingByPerson[ownPerson.value] = distance(current, avatar) > 0.001;
+        }
+      }
+      moving.value = true;
+      if (now - lastSyncAt >= 90) void syncFreePosition();
+      movementFrame = requestAnimationFrame(movementTick);
     }
 
     function handleMovementKeyDown(event: KeyboardEvent) {
@@ -953,11 +1094,15 @@ createApp({
       if (!step) return;
       event.preventDefault();
       if (!heldMovementKeys.has(key)) heldMovementKeys.set(key, step);
-      void runMovementLoop();
+      if (!movementFrame) movementFrame = requestAnimationFrame(movementTick);
     }
 
     function handleMovementKeyUp(event: KeyboardEvent) {
       heldMovementKeys.delete(event.key.toLowerCase());
+      if (!heldMovementKeys.size) {
+        clearHeldMovement();
+        void syncFreePosition();
+      }
     }
 
     onMounted(async () => {
@@ -965,6 +1110,7 @@ createApp({
       window.addEventListener("keydown", handleMovementKeyDown);
       window.addEventListener("keyup", handleMovementKeyUp);
       window.addEventListener("blur", clearHeldMovement);
+      window.addEventListener("resize", resizeMap);
       const current = await client.auth.current({}).catch(() => ({ error: "UNAVAILABLE" as const }));
       if (!("error" in current)) {
         account.value = current.account;
@@ -983,13 +1129,18 @@ createApp({
           await loadFair(fair.value.fair, true);
         } catch { /* Keep the last available map during a network interruption. */ }
       }, 4000);
+      presenceTimer = setInterval(() => {
+        if (fair.value && joinedFair.value) void refreshPresence(fair.value.fair);
+      }, 300);
     });
     onUnmounted(() => {
       window.removeEventListener("keydown", handleMovementKeyDown);
       window.removeEventListener("keyup", handleMovementKeyUp);
       window.removeEventListener("blur", clearHeldMovement);
+      window.removeEventListener("resize", resizeMap);
       clearHeldMovement();
       if (refreshTimer) clearInterval(refreshTimer);
+      if (presenceTimer) clearInterval(presenceTimer);
       if (countdownTimer) clearInterval(countdownTimer);
       for (const timer of walkTimers.values()) clearTimeout(timer);
     });
@@ -998,11 +1149,12 @@ createApp({
       mode, landingView, accountPanelOpen, accountPanelIntent, openAccountPanel,
       username, password, account, fairName, listNewFair, fair, fairCode,
       publicFairs, publicQuery, visiblePublicFairs, loadPublicFairs, setFairListing, openFair, leaveFairView,
-      boothQuery, visibleBooths, boothAreas, hallPlants, hitboxCells, showHitboxes,
-      mapAvatars, mapViewport, mapStyle, chooseMapStyle, openFairByCode,
-      selectedBoothId, selectedBooth, boothPanelExpanded, directoryOpen, selectBooth, avatar, boothName,
-      boothDescription, boothMeetingUrl, area, drafts, status, busy, canManage, submitAuth,
-      signOut, createFair, createBooth, editBooth, setBoothMeetingLink, addRepresentative,
+      boothQuery, visibleBooths, boothAreas, hallPlants, hallFurniture, displayDescription, mapExtent, mapStyle,
+      minimapViewport, updateMinimapViewport, panFromMinimap,
+      mapAvatars, mapViewport, openFairByCode,
+      selectedBoothId, selectedBooth, pendingDeleteBoothId, boothPanelExpanded, directoryOpen, selectBooth, avatar, boothName,
+      boothDescription, boothMeetingUrl, boothSize, drafts, status, busy, canManage, submitAuth,
+      signOut, createFair, createBooth, editBooth, moveBooth, deleteBooth, setBoothMeetingLink, addRepresentative,
       removeRepresentative,
       joinedFair, people, insideSelectedBooth, representsSelectedBooth,
       callUrl, newCallMode, modeUrl, inviteCount, myQueues, queueRoster, waitingRosterCount,

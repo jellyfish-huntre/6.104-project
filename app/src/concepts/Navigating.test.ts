@@ -49,3 +49,21 @@ test("shares guest positions without exposing the guest token", async () => {
   await expect(navigating.moveGuest({ token, destination: { x: 2, y: 0 } }))
     .rejects.toBeInstanceOf(NotPresent);
 });
+
+test("free walking accepts short fractional updates and refuses jumps", async () => {
+  await navigating.enter({ person: "walker", space: "smooth-fair", position: { x: 0, y: 0 } });
+  await navigating.moveFree({ person: "walker", destination: { x: 0.2, y: 0 } });
+  expect(await navigating._location({ person: "walker" })).toEqual([{
+    person: "walker", space: "smooth-fair", position: { x: 0.2, y: 0 },
+  }]);
+  await expect(navigating.moveFree({ person: "walker", destination: { x: 1.2, y: 0 } }))
+    .rejects.toBeInstanceOf(InvalidMove);
+  await expect(navigating.moveFree({ person: "walker", destination: { x: -0.1, y: 0 } }))
+    .rejects.toBeInstanceOf(InvalidMove);
+  const token = crypto.randomUUID();
+  await navigating.enterGuest({ token, space: "smooth-fair" });
+  const moved = await navigating.moveGuestFree({ token, destination: { x: 0.15, y: 0 } });
+  expect(moved.position).toEqual({ x: 0.15, y: 0 });
+  await expect(navigating.moveGuestFree({ token, destination: { x: 2, y: 0 } }))
+    .rejects.toBeInstanceOf(InvalidMove);
+});

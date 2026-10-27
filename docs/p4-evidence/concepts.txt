@@ -1,0 +1,67 @@
+bun test v1.4.2 (744846f84)
+
+src/map-geometry.test.ts:
+(pass) visible furniture footprints block their solid parts but leave chair margins walkable [6.48ms]
+(pass) booth IDs choose stable furniture layouts with matching obstacles [1.28ms]
+
+src/concepts/Navigating.test.ts:
+(pass) tracks a person and permits only adjacent in-bounds moves [14.59ms]
+(pass) shares guest positions without exposing the guest token [13.59ms]
+(pass) free walking accepts short fractional updates and refuses jumps [6.32ms]
+
+src/concepts/Sessioning.test.ts:
+(pass) resolves a session after creating a new concept instance [8.68ms]
+(pass) rejects invented sessions [1.62ms]
+(pass) expires a session without letting it be reused or ended [2.02ms]
+
+src/concepts/Reserving.test.ts:
+(pass) reserves a resource for one person and releases it on cancellation [16.55ms]
+(pass) a refused duplicate reservation leaves the original owner unchanged [3.06ms]
+
+src/concepts/Calling.test.ts:
+(pass) opens one call per booth and host, shares its URL only through join, and closes it [16.56ms]
+(pass) changes one booth call to invite-only with a fresh link [9.69ms]
+(pass) retains an invite-only link when the host leaves and resumes it for an assigned host [17.65ms]
+(pass) discarding a booth clears active and suspended links [10.97ms]
+(pass) does not replace a suspended call when another host is busy [10.14ms]
+
+src/concepts/Exhibiting.test.ts:
+(pass) creates a multi-cell booth and finds it by position [4.99ms]
+(pass) refuses overlapping or malformed areas but allows another fair [2.72ms]
+(pass) places sized booths automatically and lets only their organizer move them [8.43ms]
+(pass) concurrent sized creation re-spaces the booth that loses the first slot [4.13ms]
+(pass) only the organizer can delete a booth, clearing assignments and freeing its cells [7.51ms]
+(pass) only the recorded organizer can edit or assign representatives [1.67ms]
+(pass) adds and removes a representative once [6.12ms]
+(pass) saves a meeting link for the organizer and assigned representative only [5.78ms]
+(pass) adds organizers to older booths once without restoring a removed assignment [12.53ms]
+
+src/concepts/Queueing.test.ts:
+(pass) offers waiting visitors in order and prevents duplicate requests [26.91ms]
+(pass) closing a queue clears requests and prevents stale invitations [15.98ms]
+(pass) discarding a paused booth clears its queue and invitations [8.34ms]
+(pass) two simultaneous invitations select different waiting visitors [9.38ms]
+(pass) leaving and rejoining gives a visitor a new place in line [10.56ms]
+(pass) stops new requests but preserves and manages the existing queue [9.54ms]
+(pass) expires invitations and closes a paused queue after its grace period [15.56ms]
+
+src/concepts/Hosting.test.ts:
+(pass) creates and retrieves a fair [7.40ms]
+(pass) uses IDs rather than names to distinguish fairs [2.36ms]
+(pass) uses distinct codes for fairs with duplicate names [2.67ms]
+(pass) assigns codes to fairs created before codes existed [2.89ms]
+(pass) only the organizer can edit a fair [4.06ms]
+(pass) refuses missing fairs and returns no row for lookup [0.89ms]
+(pass) refuses blank names without changing state [0.88ms]
+(pass) only the organizer can list and unlist a fair [3.46ms]
+
+src/concepts/Authenticating.test.ts:
+(pass) registers and authenticates a persistent account [174.58ms]
+(pass) rejects duplicate names and incorrect credentials [147.77ms]
+(pass) validates new credentials [0.70ms]
+(pass) refuses to verify an account that was not registered [0.89ms]
+
+ 43 pass
+ 0 fail
+ 238 expect() calls
+Ran 43 tests across 9 files. [916.00ms]

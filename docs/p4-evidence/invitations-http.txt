@@ -1,0 +1,67 @@
+/auth/register: 200
+/auth/register: 200
+/auth/register: 200
+/auth/register: 200
+/fairs/create: 200
+/booths/create: 200
+/booths/representatives/add: 200
+/fairs/page: 200
+/fairs/enter: 200
+/fairs/move: 200
+/fairs/enter: 200
+/fairs/enter: 200
+/fairs/guest-enter: 200
+/calls/open-invite: 200
+/fairs/page: 200
+/calls/mode: 403
+/calls/close: 403
+/queues/accepting: 403
+/queues/invite-next: 403
+/calls/mode: 401
+/calls/close: 401
+/queues/accepting: 401
+/queues/invite-next: 401
+/fairs/page: 200
+/queues/join: 403
+/queues/join: 200
+/queues/guest-join: 200
+/queues/join: 409
+/calls/claim-invitation: 403
+/queues/booth: 403
+/queues/remove: 403
+/queues/booth: 200
+/queues/invite-next: 200
+/queues/booth: 200
+/calls/claim-invitation: 403
+/calls/join: 403
+/calls/claim-invitation: 200
+/queues/accepting: 200
+/queues/join: 409
+/queues/invite-next: 200
+/queues/remove: 200
+/calls/guest-claim-invitation: 403
+/fairs/move: 200
+/fairs/page: 200
+/fairs/move: 200
+/fairs/page: 200
+/calls/claim-invitation: 200
+/calls/close: 200
+/fairs/page: 200
+/calls/claim-invitation: 403
+/calls/guest-claim-invitation: 403
+/calls/open: 200
+/calls/mode: 200
+/fairs/page: 200
+/fairs/guest-enter: 200
+/queues/guest-join: 200
+/fairs/guest-leave: 200
+/queues/booth: 200
+/calls/mode: 200
+/fairs/page: 200
+/calls/claim-invitation: 403
+Invitation HTTP flow passed {
+  fair: "18f6df27-88cb-49ca-804f-bba4dadd4776",
+  booth: "7f2a9cf9-805c-47de-9eb7-f1e90bbfe2b5",
+  call: "c954997e-2f73-4afc-84d9-1b69231cf478",
+  checked: "order, access, stale invitations, guest departure, pause, resume, close, mode switch",
+}

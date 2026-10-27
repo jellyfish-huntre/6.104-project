@@ -7,7 +7,7 @@ export class InvalidMove extends Error {}
 export class InvalidGuestToken extends Error {}
 
 export interface Position { x: number; y: number }
-interface Presence { _id: string; space: string; position: Position; guestSeenAt?: Date }
+interface Presence { _id: string; space: string; position: Position; guestSeenAt?: Date; movedAt?: Date }
 
 const guestLifetimeMs = 30_000;
 const guestCutoff = () => new Date(Date.now() - guestLifetimeMs);
@@ -22,8 +22,16 @@ function guestPerson(token: string) {
 
 function validStep(current: Position, destination: Position) {
   return Number.isSafeInteger(destination?.x) && Number.isSafeInteger(destination?.y) &&
-    destination.x >= 0 && destination.x <= 9 && destination.y >= 0 && destination.y <= 9 &&
+    destination.x >= 0 && destination.y >= 0 &&
     Math.abs(destination.x - current.x) + Math.abs(destination.y - current.y) === 1;
+}
+
+function validFreeStep(current: Presence, destination: Position, now: Date) {
+  const distance = Math.hypot(destination.x - current.position.x, destination.y - current.position.y);
+  const elapsed = current.movedAt ? Math.max(0, now.getTime() - current.movedAt.getTime()) / 1000 : 0.1;
+  return Number.isFinite(destination?.x) && Number.isFinite(destination?.y) &&
+    destination.x >= 0 && destination.y >= 0 &&
+    distance > 0 && distance <= 0.32 && distance <= 3 * elapsed + 0.12;
 }
 
 export class NavigatingConcept {
@@ -58,6 +66,18 @@ export class NavigatingConcept {
     return {};
   }
 
+  async moveFree({ person, destination }: { person: string; destination: Position }) {
+    const current = await this.presences.findOne({ _id: person });
+    if (!current) throw new NotPresent("That person is not in a space.");
+    const now = new Date();
+    if (!validFreeStep(current, destination, now)) throw new InvalidMove("That movement is too far or outside the fair.");
+    const result = await this.presences.updateOne(
+      { _id: person, position: current.position }, { $set: { position: destination, movedAt: now } },
+    );
+    if (!result.matchedCount) throw new InvalidMove("That movement changed. Try again.");
+    return {};
+  }
+
   async leave({ person }: { person: string }) {
     const result = await this.presences.deleteOne({ _id: person });
     if (!result.deletedCount) throw new NotPresent("That person is not in a space.");
@@ -88,6 +108,20 @@ export class NavigatingConcept {
       { $set: { position: destination, guestSeenAt: new Date() } },
     );
     if (!result.matchedCount) throw new InvalidMove("Move one cell within the fair.");
+    return { person, position: destination };
+  }
+
+  async moveGuestFree({ token, destination }: { token: string; destination: Position }) {
+    const person = guestPerson(token);
+    const current = await this.presences.findOne({ _id: person, guestSeenAt: { $gte: guestCutoff() } });
+    if (!current) throw new NotPresent("That guest is not in a fair.");
+    const now = new Date();
+    if (!validFreeStep(current, destination, now)) throw new InvalidMove("That movement is too far or outside the fair.");
+    const result = await this.presences.updateOne(
+      { _id: person, position: current.position, guestSeenAt: { $gte: guestCutoff() } },
+      { $set: { position: destination, guestSeenAt: now, movedAt: now } },
+    );
+    if (!result.matchedCount) throw new InvalidMove("That movement changed. Try again.");
     return { person, position: destination };
   }
 

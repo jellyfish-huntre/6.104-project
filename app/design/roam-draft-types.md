@@ -6,7 +6,7 @@ lets the full draft be checked independently.
 
 ```types
 concrete Position
-  An integer grid coordinate {x, y} in a fair. Both axes run from 0 through 9;
+  An integer grid coordinate {x, y} in a fair. Both axes start at 0 and extend to the current hall bounds;
   {x: 0, y: 0} is the entrance.
 
 concrete Footprint

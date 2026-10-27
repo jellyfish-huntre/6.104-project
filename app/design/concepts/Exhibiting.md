@@ -6,7 +6,7 @@ Let organizers place booths in a space and assign people to represent them, so v
 
 ## Principle
 
-An organizer creates a booth spanning several cells and becomes its first representative. The organizer can add other representatives. A visitor can stand inside the booth, read its description, and see who represents it. The organizer can correct the description or remove a representative later. Another booth cannot overlap its area.
+An organizer creates a booth spanning several cells and becomes its first representative. A booth can be placed automatically from a small, medium, or large size. The organizer can later move it while keeping its size or delete it. The organizer can add other representatives. A visitor can stand inside the booth, read its description, and see who represents it. The organizer can correct the description or remove a representative later. Another booth cannot overlap its area.
 
 ## Types
 
@@ -39,6 +39,13 @@ Rule: An empty meetingUrl means no link is saved; saving one does not open a cal
 
 Rule: Booth footprints in the same space do not overlap.
 
+a set of HallExtents with
+  a unique space Space
+  a width Number
+  a height Number
+
+Rule: A new hall starts at 10 by 10 cells. Its extent grows in four-cell steps when no position with a clear walking cell between booths remains for an automatically placed booth; growth is retained after booth deletion.
+
 a set of Assignments with
   a booth Booth
   a representative Person
@@ -66,6 +73,49 @@ create(organizer: Person, space: Space, footprint: Footprint, name: String, desc
     add a new booth with organizer, space, footprint, name, description, and meetingUrl
     add an assignment with booth and organizer as representative
     returns booth
+
+createSized(organizer: Person, space: Space, size: String, name: String, description: String, meetingUrl: String) : returns (booth: Booth)
+  where size is not small, medium, or large
+  then
+    refuses INVALID_FOOTPRINT "Choose a small, medium, or large booth."
+  where the chosen size is valid
+  then
+    rank open positions to spread booths across the hall, preferring a clear cell between booths and balanced positions away from the entrance
+    if no spaced position fits, expand the hall by four cells on each axis and rank again
+    create the booth and assign its organizer as representative
+    returns booth
+
+move(organizer: Person, booth: Booth, position: Position) : returns ()
+  where booth does not exist or organizer does not own it
+  then
+    refuses NOT_FOUND "That booth is not found."
+  where moving the booth to position would leave the current hall extent or cover the entrance
+  then
+    refuses INVALID_FOOTPRINT "That booth location is not valid."
+  where moving the booth to position would overlap another booth in its space
+  then
+    refuses AREA_OCCUPIED "That booth area overlaps another booth."
+  where position is valid and unoccupied
+  then
+    change the booth's position while preserving its width and height
+    returns
+
+remove(organizer: Person, booth: Booth) : returns ()
+  where booth does not exist or organizer does not own it
+  then
+    refuses NOT_FOUND "That booth is not found."
+  where booth exists and organizer owns it
+  then
+    remove the booth and its representative assignments
+    returns
+
+verifyOwner(organizer: Person, booth: Booth) : returns ()
+  where booth does not exist or organizer does not own it
+  then
+    refuses NOT_FOUND "That booth is not found."
+  where booth exists and organizer owns it
+  then
+    returns
 
 edit(organizer: Person, booth: Booth, name: String, description: String) : returns ()
   where name is empty
@@ -134,7 +184,7 @@ _in(space: Space) : many (booth: Booth, space: Space, footprint: Footprint, name
   Gets the booths in a space, and no rows when there are none.
 
 _at(space: Space, position: Position) : optional (booth: Booth)
-  Gets the booth whose footprint contains the position, and no row when it is outside all booths.
+  Gets the booth whose footprint contains the whole-cell or fractional walking position, and no row when outside all booths.
 
 _representatives(booth: Booth) : many (representative: Person)
   Gets the booth's representatives, and no rows when there are none or the booth does not exist.
@@ -143,7 +193,13 @@ _isRepresentative(booth: Booth, representative: Person) : one (assigned: Flag)
   Answers true when the person represents the booth and false otherwise.
 
 _contains(booth: Booth, position: Position) : one (contains: Flag)
-  Answers whether the position is inside the booth's footprint.
+  Answers whether a whole-cell or fractional walking position is inside the booth's footprint.
+
+_walkable(space: Space, from: Position, to: Position) : one (walkable: Flag)
+  Checks a short walking segment against the current hall extent and the fair's plant and booth furniture collision shapes.
+
+_extent(space: Space) : one (width: Number, height: Number)
+  Gets the saved hall extent, or 10 by 10 for a hall that has not grown.
 
 _exists(booth: Booth) : one (exists: Flag)
   Answers whether the booth exists.

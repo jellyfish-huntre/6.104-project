@@ -1,0 +1,9 @@
+Host opened group call from the booth.
+Visitor entered the fair, moved into the booth, and opened the group video call.
+Visitor requested a turn, kept exploring, received an invitation, and opened the private video call.
+Expired invitation is labeled and cannot be opened in the browser.
+Reloaded UI and MongoDB records confirm the invite-only call and invited visitor. {
+  fair: '290a6190-ec56-447b-80d4-b561ef0691ee',
+  booth: '16a05fe7-6fa1-46c0-acb9-f8ccf346a694',
+  code: 'E9E402D8'
+}

@@ -12,8 +12,8 @@ concrete Table
   A table at a certain time, such as friday-7pm-table-4.
 
 concrete Position
-  An integer grid coordinate {x, y} in a fair. Both axes run from 0 through 9;
-  {x: 0, y: 0} is the entrance.
+  An integer grid coordinate {x, y} in a fair. Both axes start at 0 and end at
+  the current hall extent; {x: 0, y: 0} is the entrance.
 
 concrete Footprint
   A rectangle {x, y, width, height} of grid cells. x and y are the top-left

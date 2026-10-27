@@ -23,7 +23,7 @@ function validArea(value: unknown) {
     typeof x === "number" && typeof y === "number" &&
     typeof width === "number" && typeof height === "number" &&
     x >= 0 && y >= 0 && width > 0 && height > 0 &&
-    x + width <= 10 && y + height <= 10 && !(x === 0 && y === 0);
+    !(x === 0 && y === 0);
 }
 
 const createFairInput: EndpointValidator = (value) =>
@@ -49,6 +49,21 @@ const createBoothInput: EndpointValidator = (value) =>
     validArea(value.footprint)
     ? { ok: true }
     : { ok: false, detail: "Enter valid booth details and a grid area." };
+
+const createSizedBoothInput: EndpointValidator = (value) =>
+  record(value) && sessionFromCookie(value) && bounded(value.fair, 100) &&
+    bounded(value.name, 100) && bounded(value.description, 1000) &&
+    bounded(value.meetingUrl, 2000) &&
+    ["small", "medium", "large"].includes(value.size as string)
+    ? { ok: true }
+    : { ok: false, detail: "Enter valid booth details and choose a size." };
+
+const moveBoothInput: EndpointValidator = (value) =>
+  record(value) && sessionFromCookie(value) && bounded(value.booth, 100) &&
+    record(value.position) && Number.isSafeInteger(value.position.x) &&
+    Number.isSafeInteger(value.position.y)
+    ? { ok: true }
+    : { ok: false, detail: "Choose a valid booth location." };
 
 const editBoothInput: EndpointValidator = (value) =>
   record(value) && sessionFromCookie(value) && bounded(value.booth, 100) &&
@@ -77,6 +92,11 @@ const moveInput: EndpointValidator = (value) =>
     Number.isSafeInteger(value.destination.x) && Number.isSafeInteger(value.destination.y)
     ? { ok: true } : { ok: false, detail: "Enter a grid destination." };
 
+const freeMoveInput: EndpointValidator = (value) =>
+  record(value) && sessionFromCookie(value) && record(value.destination) &&
+    Number.isFinite(value.destination.x) && Number.isFinite(value.destination.y)
+    ? { ok: true } : { ok: false, detail: "Enter a map destination." };
+
 const callInput: EndpointValidator = (value) =>
   record(value) && sessionFromCookie(value) && bounded(value.booth, 100)
     ? { ok: true } : { ok: false, detail: "Enter a booth." };
@@ -98,6 +118,13 @@ const guestMoveInput: EndpointValidator = (value) =>
     record(value.destination) && Number.isSafeInteger(value.destination.x) &&
     Number.isSafeInteger(value.destination.y)
     ? { ok: true } : { ok: false, detail: "Enter a guest token and grid destination." };
+
+const guestFreeMoveInput: EndpointValidator = (value) =>
+  record(value) && typeof value.token === "string" &&
+    /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(value.token) &&
+    record(value.destination) && Number.isFinite(value.destination.x) &&
+    Number.isFinite(value.destination.y)
+    ? { ok: true } : { ok: false, detail: "Enter a guest token and map destination." };
 
 const guestTokenInput: EndpointValidator = (value) =>
   record(value) && typeof value.token === "string" &&
@@ -131,13 +158,15 @@ const removeQueueInput: EndpointValidator = (value) =>
 
 const FairPage = former(
   "the fair page for (fair)",
-  ({ fair }, { name, organizer, code, listed, booth, boothName, description, footprint, meetingLinkSaved, representative, call, host, mode, accepting, pausedUntil, waiting }) =>
-    where(Hosting._get({ fair }).is({ name, organizer, code, listed })).form({
+  ({ fair }, { name, organizer, code, listed, width, height, booth, boothName, description, footprint, meetingLinkSaved, representative, call, host, mode, accepting, pausedUntil, waiting }) =>
+    where(Hosting._get({ fair }).is({ name, organizer, code, listed }),
+      Exhibiting._extent({ space: fair }).is({ width, height })).form({
       fair,
       name,
       organizer,
       code,
       listed,
+      extent: form({ width, height }),
       booths: each(
         Exhibiting._in({ space: fair }).is({ booth, name: boothName, description, footprint, meetingLinkSaved }),
       ).form({
@@ -239,6 +268,20 @@ const CreateBooth = endpoint(
   },
 );
 
+const CreateSizedBooth = endpoint(
+  "/booths/create-sized",
+  ({ session, organizer, fair, size, name, description, meetingUrl, booth }) =>
+    receive({ session, fair, size, name, description, meetingUrl })
+      .then(Sessioning.current({ session }).responds({ subject: organizer }))
+      .then(Hosting.verifyOwner({ organizer, fair }))
+      .then(Exhibiting.createSized({ organizer, space: fair, size, name, description, meetingUrl }).responds({ booth }))
+      .then(respond({ booth })),
+  {
+    input: { required: ["session", "fair", "size", "name", "description", "meetingUrl"] },
+    validators: { input: createSizedBoothInput },
+  },
+);
+
 const SetBoothMeetingLink = endpoint(
   "/booths/meeting-link/set",
   ({ session, organizer, booth, meetingUrl }) =>
@@ -270,6 +313,58 @@ const EditBooth = endpoint(
     input: { required: ["session", "booth", "name", "description"] },
     validators: { input: editBoothInput },
   },
+);
+
+const MoveBooth = endpoint(
+  "/booths/move",
+  ({ session, organizer, booth, position }) =>
+    receive({ session, booth, position })
+      .where(
+        Calling._isOpen({ place: booth }).is({ open: false }),
+        Calling._suspendedAt({ place: booth }).is({ suspended: false }),
+      )
+      .then(Sessioning.current({ session }).responds({ subject: organizer }))
+      .then(Exhibiting.move({ organizer, booth, position }))
+      .then(respond({ booth })),
+  {
+    input: { required: ["session", "booth", "position"] },
+    validators: { input: moveBoothInput },
+  },
+);
+
+const MoveBoothDuringCall = endpoint(
+  "/booths/move",
+  ({ session, organizer, booth, position }) => receive({ session, booth, position })
+    .where(
+      Sessioning._active({ session }).is({ subject: organizer }),
+      Exhibiting._get({ booth }).is({ organizer }),
+      Calling._isOpen({ place: booth }).is({ open: true }),
+    )
+    .then(respond({ error: "PLACE_BUSY" })),
+);
+
+const MoveBoothWhilePaused = endpoint(
+  "/booths/move",
+  ({ session, organizer, booth, position }) => receive({ session, booth, position })
+    .where(
+      Sessioning._active({ session }).is({ subject: organizer }),
+      Exhibiting._get({ booth }).is({ organizer }),
+      Calling._suspendedAt({ place: booth }).is({ suspended: true }),
+    )
+    .then(respond({ error: "PLACE_BUSY" })),
+);
+
+const DeleteBooth = endpoint(
+  "/booths/delete",
+  ({ session, organizer, booth }) =>
+    receive({ session, booth })
+      .then(Sessioning.current({ session }).responds({ subject: organizer }))
+      .then(Exhibiting.verifyOwner({ organizer, booth }))
+      .then(Calling.discardAt({ place: booth }))
+      .then(Queueing.discard({ target: booth }))
+      .then(Exhibiting.remove({ organizer, booth }))
+      .then(respond({ deleted: true })),
+  { input: { required: ["session", "booth"] }, validators: { input: callInput } },
 );
 
 const AddRepresentative = endpoint(
@@ -312,12 +407,65 @@ const EnterFair = endpoint(
 
 const Move = endpoint(
   "/fairs/move",
-  ({ session, person, destination }) =>
+  ({ session, person, destination, space, position }) =>
     receive({ session, destination })
-      .then(Sessioning.current({ session }).responds({ subject: person }))
+      .where(
+        Sessioning._active({ session }).is({ subject: person }),
+        Navigating._location({ person }).is({ space, position }),
+        Exhibiting._walkable({ space, from: position, to: destination }).is({ walkable: true }),
+      )
       .then(Navigating.move({ person, destination }))
       .then(respond({ position: destination })),
   { input: { required: ["session", "destination"] }, validators: { input: moveInput } },
+);
+
+const MoveBlocked = endpoint(
+  "/fairs/move",
+  ({ session, person, destination, space, position }) => receive({ session, destination })
+    .where(
+      Sessioning._active({ session }).is({ subject: person }),
+      Navigating._location({ person }).is({ space, position }),
+      Exhibiting._walkable({ space, from: position, to: destination }).is({ walkable: false }),
+    )
+    .then(respond({ error: "INVALID_MOVE" })),
+);
+
+const MoveNoSession = endpoint(
+  "/fairs/move",
+  ({ session, destination }) => receive({ session, destination })
+    .where(Sessioning._isActive({ session }).is({ active: false }))
+    .then(respond({ error: "UNKNOWN_SESSION" })),
+);
+
+const MoveFree = endpoint(
+  "/fairs/move-free",
+  ({ session, person, destination, space, position }) => receive({ session, destination })
+    .where(
+      Sessioning._active({ session }).is({ subject: person }),
+      Navigating._location({ person }).is({ space, position }),
+      Exhibiting._walkable({ space, from: position, to: destination }).is({ walkable: true }),
+    )
+    .then(Navigating.moveFree({ person, destination }))
+    .then(respond({ position: destination })),
+  { input: { required: ["session", "destination"] }, validators: { input: freeMoveInput } },
+);
+
+const MoveFreeBlocked = endpoint(
+  "/fairs/move-free",
+  ({ session, person, destination, space, position }) => receive({ session, destination })
+    .where(
+      Sessioning._active({ session }).is({ subject: person }),
+      Navigating._location({ person }).is({ space, position }),
+      Exhibiting._walkable({ space, from: position, to: destination }).is({ walkable: false }),
+    )
+    .then(respond({ error: "INVALID_MOVE" })),
+);
+
+const MoveFreeNoSession = endpoint(
+  "/fairs/move-free",
+  ({ session, destination }) => receive({ session, destination })
+    .where(Sessioning._isActive({ session }).is({ active: false }))
+    .then(respond({ error: "UNKNOWN_SESSION" })),
 );
 
 const LeaveFair = endpoint(
@@ -348,10 +496,46 @@ const GuestEnterUnknownFair = endpoint(
 
 const GuestMove = endpoint(
   "/fairs/guest-move",
-  ({ token, destination, person, position }) => receive({ token, destination })
+  ({ token, destination, person, position, previous, space }) => receive({ token, destination })
+    .where(
+      Navigating._guestLocation({ token }).is({ person, space, position: previous }),
+      Exhibiting._walkable({ space, from: previous, to: destination }).is({ walkable: true }),
+    )
     .then(Navigating.moveGuest({ token, destination }).responds({ person, position }))
     .then(respond({ person, position })),
   { input: { required: ["token", "destination"] }, validators: { input: guestMoveInput } },
+);
+
+const GuestMoveBlocked = endpoint(
+  "/fairs/guest-move",
+  ({ token, destination, space, position }) => receive({ token, destination })
+    .where(
+      Navigating._guestLocation({ token }).is({ space, position }),
+      Exhibiting._walkable({ space, from: position, to: destination }).is({ walkable: false }),
+    )
+    .then(respond({ error: "INVALID_MOVE" })),
+);
+
+const GuestMoveFree = endpoint(
+  "/fairs/guest-move-free",
+  ({ token, destination, person, space, position, previous }) => receive({ token, destination })
+    .where(
+      Navigating._guestLocation({ token }).is({ person, space, position: previous }),
+      Exhibiting._walkable({ space, from: previous, to: destination }).is({ walkable: true }),
+    )
+    .then(Navigating.moveGuestFree({ token, destination }).responds({ person, position }))
+    .then(respond({ person, position })),
+  { input: { required: ["token", "destination"] }, validators: { input: guestFreeMoveInput } },
+);
+
+const GuestMoveFreeBlocked = endpoint(
+  "/fairs/guest-move-free",
+  ({ token, destination, space, position }) => receive({ token, destination })
+    .where(
+      Navigating._guestLocation({ token }).is({ space, position }),
+      Exhibiting._walkable({ space, from: position, to: destination }).is({ walkable: false }),
+    )
+    .then(respond({ error: "INVALID_MOVE" })),
 );
 
 const GuestLeaveFair = endpoint(
@@ -440,6 +624,23 @@ const ChangeCallMode = endpoint(
       .then(Calling.changeMode({ host: person, call, mode, joinUrl }))
       .then(respond({ call, mode })),
   { input: { required: ["session", "call", "mode", "joinUrl"] }, validators: { input: modeInput } },
+);
+
+const ChangeCallModeNotHost = endpoint(
+  "/calls/mode",
+  ({ session, person, call, mode, joinUrl }) => receive({ session, call, mode, joinUrl })
+    .where(
+      Sessioning._active({ session }).is({ subject: person }),
+      Calling._isHost({ host: person, call }).is({ hosting: false }),
+    )
+    .then(respond({ error: "NOT_ALLOWED" })),
+);
+
+const ChangeCallModeNoSession = endpoint(
+  "/calls/mode",
+  ({ session, call, mode, joinUrl }) => receive({ session, call, mode, joinUrl })
+    .where(Sessioning._isActive({ session }).is({ active: false }))
+    .then(respond({ error: "UNKNOWN_SESSION" })),
 );
 
 const MyQueueStatus = former(
@@ -571,6 +772,23 @@ const SetQueueAccepting = endpoint(
   { input: { required: ["session", "booth", "accepting"] }, validators: { input: acceptingInput } },
 );
 
+const SetQueueAcceptingNotRepresentative = endpoint(
+  "/queues/accepting",
+  ({ session, person, booth, accepting }) => receive({ session, booth, accepting })
+    .where(
+      Sessioning._active({ session }).is({ subject: person }),
+      Exhibiting._isRepresentative({ booth, representative: person }).is({ assigned: false }),
+    )
+    .then(respond({ error: "NOT_ALLOWED" })),
+);
+
+const SetQueueAcceptingNoSession = endpoint(
+  "/queues/accepting",
+  ({ session, booth, accepting }) => receive({ session, booth, accepting })
+    .where(Sessioning._isActive({ session }).is({ active: false }))
+    .then(respond({ error: "UNKNOWN_SESSION" })),
+);
+
 const RemoveFromQueue = endpoint(
   "/queues/remove",
   ({ session, person, booth, visitor, space, position }) => receive({ session, booth, visitor })
@@ -600,6 +818,23 @@ const InviteNext = endpoint(
     .then(Queueing.inviteNext({ target: booth }).responds({ person: visitor, invitedUntil }))
     .then(respond({ visitor, invitedUntil })),
   { input: { required: ["session", "booth"] }, validators: { input: callInput } },
+);
+
+const InviteNextNotRepresentative = endpoint(
+  "/queues/invite-next",
+  ({ session, person, booth }) => receive({ session, booth })
+    .where(
+      Sessioning._active({ session }).is({ subject: person }),
+      Exhibiting._isRepresentative({ booth, representative: person }).is({ assigned: false }),
+    )
+    .then(respond({ error: "NOT_ALLOWED" })),
+);
+
+const InviteNextNoSession = endpoint(
+  "/queues/invite-next",
+  ({ session, booth }) => receive({ session, booth })
+    .where(Sessioning._isActive({ session }).is({ active: false }))
+    .then(respond({ error: "UNKNOWN_SESSION" })),
 );
 
 const ClaimInvitation = endpoint(
@@ -908,6 +1143,23 @@ const CloseInviteCall = endpoint(
     .then(respond({ closed: true })),
 );
 
+const CloseCallNotHost = endpoint(
+  "/calls/close",
+  ({ session, person, call }) => receive({ session, call })
+    .where(
+      Sessioning._active({ session }).is({ subject: person }),
+      Calling._isHost({ host: person, call }).is({ hosting: false }),
+    )
+    .then(respond({ error: "NOT_ALLOWED" })),
+);
+
+const CloseCallNoSession = endpoint(
+  "/calls/close",
+  ({ session, call }) => receive({ session, call })
+    .where(Sessioning._isActive({ session }).is({ active: false }))
+    .then(respond({ error: "UNKNOWN_SESSION" })),
+);
+
 const InviteCallStartsQueue = reaction(({ host, place, call }) =>
   when(Calling.open({ host, place, mode: "INVITE_ONLY" }).responds({ call }))
     .where(Queueing._exists({ target: place }).is({ exists: false }))
@@ -990,6 +1242,42 @@ const ReturnedRepresentativeResumesInviteCall = reaction(({ person, booth, posit
     .then(Queueing.resume({ target: booth })),
 );
 
+const FreeHostExitsBoothClosesCall = reaction(({ person, call, booth, position, space }) =>
+  when(Navigating.moveFree({ person }).responds({}))
+    .where(
+      Calling._hostedBy({ host: person }).is({ call, place: booth, mode: "OPEN_GROUP" }),
+      Exhibiting._get({ booth }).is({ space }),
+      Navigating._location({ person }).is({ space, position }),
+      Exhibiting._contains({ booth, position }).is({ contains: false }),
+    )
+    .then(Calling.close({ host: person, call })),
+);
+
+const FreeHostExitsInviteBoothPausesQueue = reaction(({ person, call, booth, position, space }) =>
+  when(Navigating.moveFree({ person }).responds({}))
+    .where(
+      Calling._hostedBy({ host: person }).is({ call, place: booth, mode: "INVITE_ONLY" }),
+      Exhibiting._get({ booth }).is({ space }),
+      Navigating._location({ person }).is({ space, position }),
+      Exhibiting._contains({ booth, position }).is({ contains: false }),
+    )
+    .then(Calling.suspend({ host: person, call }).responds({ place: booth }))
+    .then(Queueing.pause({ target: booth })),
+);
+
+const FreeReturnedRepresentativeResumesInviteCall = reaction(({ person, booth, position, space, call }) =>
+  when(Navigating.moveFree({ person }).responds({}))
+    .where(
+      Navigating._location({ person }).is({ space, position }),
+      Exhibiting._at({ space, position }).is({ booth }),
+      Exhibiting._isRepresentative({ booth, representative: person }).is({ assigned: true }),
+      Queueing._paused({ target: booth }).is({ paused: true }),
+      Calling._suspendedAt({ place: booth }).is({ suspended: true }),
+    )
+    .then(Calling.resume({ host: person, place: booth }).responds({ call }))
+    .then(Queueing.resume({ target: booth })),
+);
+
 const DepartedHostClosesCall = reaction(({ person, call }) =>
   when(Navigating.leave({ person }).responds({}))
     .where(Calling._hostedBy({ host: person }).is({ call, mode: "OPEN_GROUP" }))
@@ -1018,23 +1306,32 @@ const DepartedGuestLeavesQueue = reaction(({ person, target }) =>
 export const composition = {
   FairPage, PublicFairs, ListPublicFairs, SetFairListing,
   CreateFair, OpenFairCode, FairCodeNotFound, GetFairPage, FairNotFound,
-  CreateBooth, EditBooth, SetBoothMeetingLink, GetBoothMeetingLink,
+  CreateBooth, CreateSizedBooth, EditBooth, MoveBooth, MoveBoothDuringCall, MoveBoothWhilePaused,
+  DeleteBooth,
+  SetBoothMeetingLink, GetBoothMeetingLink,
   AddRepresentative, RemoveRepresentative,
-  EnterFair, Move, LeaveFair, GuestEnterFair, GuestEnterUnknownFair,
-  GuestMove, GuestLeaveFair, FairPresence, GetPresence,
-  OpenCall, OpenInviteCall, ResumeInviteCall, ChangeCallMode, JoinCall, GuestJoinCall, GuestJoinCallUnknownFair,
+  EnterFair, Move, MoveBlocked, MoveNoSession, MoveFree, MoveFreeBlocked, MoveFreeNoSession, LeaveFair,
+  GuestEnterFair, GuestEnterUnknownFair, GuestMove, GuestMoveBlocked, GuestMoveFree, GuestMoveFreeBlocked,
+  GuestLeaveFair, FairPresence, GetPresence,
+  OpenCall, OpenInviteCall, ResumeInviteCall, ChangeCallMode, ChangeCallModeNotHost,
+  ChangeCallModeNoSession,
+  JoinCall, GuestJoinCall, GuestJoinCallUnknownFair,
   GuestJoinCallWrongBooth, GuestJoinCallClosed, GuestJoinCallOutside,
-  GuestJoinCallAbsent, CloseCall, CloseInviteCall,
+  GuestJoinCallAbsent, CloseCall, CloseInviteCall, CloseCallNotHost, CloseCallNoSession,
   OpenCallNotRepresentative, OpenCallOutside, OpenCallAbsent,
   JoinCallOutside, JoinCallAbsent, JoinCallClosed,
   OpenCallUnknownBooth, JoinCallUnknownBooth, OpenCallNoSession, JoinCallNoSession,
   RemovedRepresentativeClosesCall, RemovedInviteRepresentativePausesQueue,
   HostExitsBoothClosesCall, HostExitsInviteBoothPausesQueue, ReturnedRepresentativeResumesInviteCall,
+  FreeHostExitsBoothClosesCall, FreeHostExitsInviteBoothPausesQueue,
+  FreeReturnedRepresentativeResumesInviteCall,
   DepartedHostClosesCall, DepartedInviteHostPausesQueue, DepartedVisitorLeavesQueue,
   DepartedGuestLeavesQueue,
   MyQueueStatus, BoothQueue, JoinQueue, JoinQueueRepresentative, GuestJoinQueue, LeaveQueue, GuestLeaveQueue,
-  GetMyQueueStatus, GuestMyQueueStatus, GetBoothQueue, SetQueueAccepting,
-  RemoveFromQueue, InviteNext, ClaimInvitation, GuestClaimInvitation,
+  GetMyQueueStatus, GuestMyQueueStatus, GetBoothQueue,
+  SetQueueAccepting, SetQueueAcceptingNotRepresentative, SetQueueAcceptingNoSession,
+  RemoveFromQueue, InviteNext, InviteNextNotRepresentative, InviteNextNoSession,
+  ClaimInvitation, GuestClaimInvitation,
   ClaimInvitationNotInvited, GuestClaimInvitationNotInvited,
   JoinCallInviteOnly, GuestJoinCallInviteOnly,
   GetBoothQueueNotRepresentative, RemoveFromQueueNotRepresentative,

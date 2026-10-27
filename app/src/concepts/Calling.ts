@@ -92,6 +92,12 @@ export class CallingConcept {
     return { place: row.place, mode: row.mode ?? "OPEN_GROUP" };
   }
 
+  async discardAt({ place }: { place: string }) {
+    await this.calls.deleteMany({ place });
+    await this.suspendedCalls.deleteOne({ _id: place });
+    return {};
+  }
+
   async suspend({ host, call }: { host: string; call: string }) {
     const row = await this.calls.findOne({ _id: call, host, mode: "INVITE_ONLY" });
     if (!row) throw new NoSuchCall("That call is not found.");
@@ -111,6 +117,10 @@ export class CallingConcept {
   async _hostedBy({ host }: { host: string }) {
     const row = await this.calls.findOne({ host });
     return row ? [{ call: row._id, place: row.place, mode: row.mode ?? "OPEN_GROUP" }] : [];
+  }
+
+  async _isHost({ host, call }: { host: string; call: string }) {
+    return { hosting: !!(await this.calls.findOne({ _id: call, host })) };
   }
 
   async _isOpen({ place }: { place: string }) {

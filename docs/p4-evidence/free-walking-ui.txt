@@ -1,0 +1,1 @@
+Smooth browser walking, square map, no hitbox controls, and server position sync passed.

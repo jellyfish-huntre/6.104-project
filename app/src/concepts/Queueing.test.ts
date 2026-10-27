@@ -59,6 +59,19 @@ test("closing a queue clears requests and prevents stale invitations", async () 
   await expect(queueing.join({ person: "gina", target: "booth-d" })).resolves.toEqual({ order: 1 });
 });
 
+test("discarding a paused booth clears its queue and invitations", async () => {
+  await queueing.open({ target: "delete-paused" });
+  await queueing.join({ person: "waiting-visitor", target: "delete-paused" });
+  await queueing.inviteNext({ target: "delete-paused" });
+  await queueing.pause({ target: "delete-paused" });
+  await queueing.discard({ target: "delete-paused" });
+  expect(await queueing._exists({ target: "delete-paused" })).toEqual({ exists: false });
+  expect(await queueing._targets({ person: "waiting-visitor" })).toEqual([]);
+  expect(await queueing._invited({ person: "waiting-visitor", target: "delete-paused" }))
+    .toEqual({ invited: false });
+  await expect(queueing.discard({ target: "delete-paused" })).resolves.toEqual({});
+});
+
 test("two simultaneous invitations select different waiting visitors", async () => {
   await queueing.open({ target: "booth-e" });
   await queueing.join({ person: "ivy", target: "booth-e" });
