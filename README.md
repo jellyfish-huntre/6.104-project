@@ -38,6 +38,7 @@ The [P4 validation record](docs/p4-test-results.md) has the HTTP and browser jou
 | --- | --- |
 | [Final design](docs/p4-final-design.md) | The problem, key design decisions, and changes since P1 and P3. |
 | [P4 testing and validation](docs/p4-test-results.md) | Tests, commands, results, and evidence. |
+| [Demo outline](docs/p4-demo-outline.md) | A narrated walkthrough of the public app, capped at three minutes. |
 | [Concept specifications](docs/p4-final-design.md#the-boundaries-that-keep-this-consistent) and [composition](app/design/compositions/Roam.md) | The active concepts and reactions behind Roam. |
 | [Type bindings](app/design/types.md) and [visual direction](app/design/visual-direction.md) | Shared design details. |
 

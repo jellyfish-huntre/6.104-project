@@ -123,6 +123,7 @@ createApp({
     let countdownTimer: ReturnType<typeof setInterval> | undefined;
     const drafts = reactive<Record<string, { name: string; description: string; representative: string; meetingUrl: string; x: number; y: number }>>({});
     const status = ref("");
+    const statusIsSuccess = computed(() => status.value === "Booth location updated." || status.value === "Booth deleted.");
     const busy = ref(false);
     watch(busy, (started) => { if (started) status.value = ""; }, { flush: "sync" });
     const canManage = computed(() => account.value !== null && account.value === fair.value?.organizer);
@@ -1153,7 +1154,7 @@ createApp({
       minimapViewport, updateMinimapViewport, panFromMinimap,
       mapAvatars, mapViewport, openFairByCode,
       selectedBoothId, selectedBooth, pendingDeleteBoothId, boothPanelExpanded, directoryOpen, selectBooth, avatar, boothName,
-      boothDescription, boothMeetingUrl, boothSize, drafts, status, busy, canManage, submitAuth,
+      boothDescription, boothMeetingUrl, boothSize, drafts, status, statusIsSuccess, busy, canManage, submitAuth,
       signOut, createFair, createBooth, editBooth, moveBooth, deleteBooth, setBoothMeetingLink, addRepresentative,
       removeRepresentative,
       joinedFair, people, insideSelectedBooth, representsSelectedBooth,

@@ -20,6 +20,7 @@ Each person remains the same rendered avatar as its fractional position changes.
 
 A held arrow or WASD key moves continuously until release. Releasing the key, losing window focus, or leaving the fair stops held movement.
 Routine contact with furniture or a rejected position update corrects the avatar without placing a red error banner in the booth panel. Keep visible errors for failures that need a person to act, such as a lost server connection.
+After an organizer moves or deletes a booth, use a calm success message with status semantics. Reserve red styling and alert semantics for errors that require attention.
 
 The booth panel leads with the booth name and the actions relevant to the selected booth. When an invite-only queue is active, queue actions come before call settings so representatives can invite waiting visitors immediately. The panel has a fixed maximum height within the fair view, a persistent header, and a scrollable content area so every queue action stays reachable even when the roster grows. Keep queue names readable within the panel. Do not show a separate conversation-status card or redundant representative status text and divider lines. A waiting request remains visible when the visitor selects another booth. Organizer and representative controls remain available below the immediate queue actions.
 

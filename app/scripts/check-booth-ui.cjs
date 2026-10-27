@@ -57,6 +57,10 @@ const { chromium } = require('playwright');
     await card.getByLabel(/Row \(0–\d+\)/).fill('5');
     await card.getByRole('button', { name: 'Save location' }).click();
     await card.getByText('Location (5, 5)').waitFor();
+    const moveStatus = page.locator('[role="status"]').filter({ hasText: 'Booth location updated.' });
+    await moveStatus.waitFor();
+    if (await moveStatus.evaluate((element) => getComputedStyle(element).color) !== 'rgb(25, 96, 68)')
+      throw new Error('A successful move is styled as an error.');
     const variantCount = () => page.locator('.booth-area').evaluateAll((areas) =>
       new Set(areas.map((area) => [...area.classList].find((name) => name.startsWith('booth-variant-')))).size);
     for (let attempt = 0; attempt < 5 && await variantCount() < 2; attempt++) {
@@ -81,6 +85,7 @@ const { chromium } = require('playwright');
     await secondCard.getByText('Delete Second UI booth? Its call and invitations will end.').waitFor();
     await secondCard.getByRole('button', { name: 'Confirm delete' }).click();
     await secondCard.waitFor({ state: 'detached' });
+    await page.locator('[role="status"]').filter({ hasText: 'Booth deleted.' }).waitFor();
     console.log('Collapsed directory rows, organizer location edit, and confirmed booth deletion passed in the browser.');
   } finally {
     await browser.close();

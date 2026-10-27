@@ -97,6 +97,7 @@ p { margin-top: 0; }
 .public-fair .secondary-button { flex: none; }
 .inline-error { display: block; flex-basis: 100%; margin: .35rem 0; color: #a1263a; font-size: .82rem; font-weight: 700; }
 .inline-status, .booth-panel-body > .inline-status { margin: .5rem 0 1rem; border: 1px solid #e7b4bf; border-radius: 8px; padding: .6rem .75rem; color: #8b2234; background: #fff3f5; font-size: .82rem; }
+.inline-status.is-success { border-color: #a4d5bd; color: #196044; background: #effaf3; }
 .modal-backdrop { position: fixed; z-index: 20; inset: 0; display: grid; place-items: center; padding: 18px; background: #0c1637a8; }
 .account-panel { position: relative; width: min(100%, 445px); max-height: min(90vh, 760px); overflow-y: auto; border-radius: 17px; padding: 27px; background: white; box-shadow: 0 24px 75px #0c163580; }
 .account-panel h2 { margin: .3rem 0 1.2rem; font-size: 1.75rem; }

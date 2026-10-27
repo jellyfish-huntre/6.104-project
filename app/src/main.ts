@@ -12,6 +12,7 @@ await migrateLegacyBoothRepresentatives(db);
 const application = assembleApplication();
 const gateway = createGateway({ application });
 const api = createHttpHandler({ application, gateway, policy });
+let healthFailureLogged = false;
 
 const server = Bun.serve({
   hostname: process.env.HOST ?? "127.0.0.1",
@@ -23,11 +24,17 @@ const server = Bun.serve({
         await db
           .collection("hosting.fairs")
           .findOne({}, { maxTimeMS: 2000, timeoutMS: 3000 });
+        if (healthFailureLogged) console.info("Database health check recovered");
+        healthFailureLogged = false;
         return Response.json(
           { status: "ok" },
           { headers: { "Cache-Control": "no-store" } },
         );
-      } catch {
+      } catch (error) {
+        if (!healthFailureLogged) {
+          console.error("Database health check failed", error instanceof Error ? error.name : "UnknownError");
+          healthFailureLogged = true;
+        }
         return Response.json(
           { status: "unavailable" },
           { status: 503, headers: { "Cache-Control": "no-store" } },

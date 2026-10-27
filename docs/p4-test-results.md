@@ -57,3 +57,11 @@ SCREENSHOT_DIR=../docs/p4-evidence bun scripts/check-browser-journeys.cjs
 ```
 
 The browser script requires Playwright Chromium. Test scripts create uniquely named, unlisted local fairs and accounts. Concept tests use temporary databases and remove them afterward. The browser script intercepts `meet.example` links to check that Roam opens the authorized URL; it cannot verify entry into the external meeting or revoke a URL already copied. These are **local** results. The final deployed commit still needs a separate live check of persistence, access control, and errors.
+
+## October 27 deployment and regression follow-up
+
+Deployment `b22f89725` built and started both processes, but the course platform reported that `/health` on port 3000 did not return HTTP 2xx. Its saved output shows the front end listening on port 3000 and the back end ready on port 4000. The exact failed response was not included in the saved logs, so the underlying database or proxy error cannot be identified from that attempt alone. The MongoDB binding now appears in settings as `MONGODB_URL`, the name Roam reads, and that commit is being retried with the current settings. A later code change logs the error *type* once when the database health probe fails, then logs recovery, without printing the connection string.
+
+The latest local run passed `bun run check:design`, `bun run generate`, `bun run check`, and 45 concept/geometry tests with 250 assertions. The booth management browser test passed, including positive feedback for a moved and deleted booth. The full host/visitor browser journey passed with both call modes, an invitation after reload, and an expired invitation. That journey now uses a 2 × 2 booth; a fixed-duration walk into a 1 × 1 booth was timing-sensitive in one run. The browser journey uses MongoDB assertions locally and the public API plus browser reload when run against a deployed URL.
+
+For the final live validation, set `APP_URL=https://roam.mit-sdg.dev` and `API_URL=https://roam.mit-sdg.dev/api` when running the HTTP and browser scripts above. Wait until the deployment page identifies the intended commit as Live before running them. Save the command output and record the exact commit here. These scripts create unlisted test fairs and accounts in the public database.

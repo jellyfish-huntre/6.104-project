@@ -2,7 +2,8 @@ const { chromium } = require('playwright');
 const { MongoClient } = require('mongodb');
 (async () => {
 const base = process.env.APP_URL ?? 'http://127.0.0.1:8080';
-const mongoUrl = process.env.MONGODB_URL ?? 'mongodb://dev:dev@127.0.0.1:27017/myapp?authSource=admin';
+const localApp = ['localhost', '127.0.0.1'].includes(new URL(base).hostname);
+const mongoUrl = process.env.MONGODB_URL ?? (localApp ? 'mongodb://dev:dev@127.0.0.1:27017/myapp?authSource=admin' : null);
 const suffix = crypto.randomUUID().replaceAll('-', '').slice(0, 8);
 const username = `qa_${suffix}`;
 const password = 'testpass123';
@@ -26,7 +27,7 @@ const browser = await chromium.launch({ headless: true });
 try {
   await post('/auth/register', { username, password });
   const { fair } = await post('/fairs/create', { name: `Journey test ${suffix}` });
-  const { booth } = await post('/booths/create', { fair, name: 'Robotics', description: 'Explore projects', meetingUrl: 'https://meet.example/group', footprint: { x: 0, y: 1, width: 1, height: 1 } });
+  const { booth } = await post('/booths/create', { fair, name: 'Robotics', description: 'Explore projects', meetingUrl: 'https://meet.example/group', footprint: { x: 0, y: 1, width: 2, height: 2 } });
   const { page: fairPage } = await post('/fairs/page', { fair });
   const code = fairPage.code;
   const hostContext = await browser.newContext({ viewport: { width: 1440, height: 900 } });
@@ -45,7 +46,7 @@ try {
   await host.getByRole('button', { name: /Enter the fair/ }).click();
   await host.locator('.map-avatar.own[aria-label*="(0, 0)"]').waitFor();
   await host.getByRole('button', { name: 'Select Robotics booth' }).click();
-  await walk(host, 'ArrowDown', 430);
+  await walk(host, 'ArrowDown', 350);
   await host.getByRole('button', { name: 'Open group call here' }).waitFor();
   await host.getByRole('button', { name: 'Open group call here' }).click();
   await host.getByRole('button', { name: 'Close call', exact: true }).waitFor();
@@ -59,7 +60,7 @@ try {
   await guest.getByRole('button', { name: /Enter the fair/ }).click();
   await guest.locator('.map-avatar.own[aria-label*="(0, 0)"]').waitFor();
   await guest.getByRole('button', { name: 'Select Robotics booth' }).click();
-  await walk(guest, 'ArrowDown', 430);
+  await walk(guest, 'ArrowDown', 350);
   await guest.getByRole('button', { name: 'Open video call' }).waitFor();
   if (process.env.SCREENSHOT_DIR) await guest.screenshot({ path: `${process.env.SCREENSHOT_DIR}/open-group.png` });
   const groupPopupPromise = guest.waitForEvent('popup');
@@ -104,18 +105,20 @@ try {
   console.log('Visitor requested a turn, kept exploring, received an invitation, and opened the private video call.');
   const page = (await post('/fairs/page', { fair })).page;
   assert(page.booths[0].queues[0].waiting === 0, 'Stored queue still shows a waiting visitor');
-  const mongo = new MongoClient(mongoUrl);
-  try {
-    await mongo.connect();
-    const db = mongo.db();
-    const savedCall = await db.collection('calling.calls').findOne({ place: booth });
-    const savedQueue = await db.collection('queueing.queues').findOne({ _id: booth });
-    const requests = await db.collection('queueing.requests').find({ target: booth }).toArray();
-    assert(savedCall?.mode === 'INVITE_ONLY' && savedCall.joinUrl === 'https://meet.example/private', 'Invite-only call was not stored');
-    assert(savedQueue?.accepting === false, 'Closed-to-new-requests queue state was not stored');
-    assert(requests.length === 1 && requests[0].invitedUntil, 'Invited request was not stored');
-  } finally {
-    await mongo.close();
+  if (mongoUrl) {
+    const mongo = new MongoClient(mongoUrl);
+    try {
+      await mongo.connect();
+      const db = mongo.db();
+      const savedCall = await db.collection('calling.calls').findOne({ place: booth });
+      const savedQueue = await db.collection('queueing.queues').findOne({ _id: booth });
+      const requests = await db.collection('queueing.requests').find({ target: booth }).toArray();
+      assert(savedCall?.mode === 'INVITE_ONLY' && savedCall.joinUrl === 'https://meet.example/private', 'Invite-only call was not stored');
+      assert(savedQueue?.accepting === false, 'Closed-to-new-requests queue state was not stored');
+      assert(requests.length === 1 && requests[0].invitedUntil, 'Invited request was not stored');
+    } finally {
+      await mongo.close();
+    }
   }
   await guest.getByRole('button', { name: 'Open booth directory' }).click();
   await guest.locator('.directory-card .booth-entry > summary').first().click();
@@ -135,7 +138,7 @@ try {
   await host.getByRole('button', { name: 'Send invitation' }).scrollIntoViewIfNeeded();
   assert(await host.getByRole('button', { name: 'Send invitation' }).isVisible(), 'Mobile invitation controls are unreachable');
   if (process.env.SCREENSHOT_DIR) await host.screenshot({ path: `${process.env.SCREENSHOT_DIR}/mobile-host.png` });
-  console.log('Reloaded UI and MongoDB records confirm the invite-only call and invited visitor.', { fair, booth, code });
+  console.log(mongoUrl ? 'Reloaded UI and MongoDB records confirm the invite-only call and invited visitor.' : 'Reloaded UI and public API confirm the invite-only call and invited visitor.', { fair, booth, code });
   await hostContext.close();
   await guestContext.close();
   await outsiderContext.close();

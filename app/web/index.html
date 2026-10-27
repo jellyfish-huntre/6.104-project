@@ -43,7 +43,7 @@
         </div>
         <div v-if="landingView === 'enter'" class="entry-card">
           <div class="brand entry-brand"><img class="brand-mark" src="./assets/roam-mark.svg" alt="" />Roam</div>
-          <p v-if="status && !accountPanelOpen" class="inline-status" role="alert">{{ status }}</p>
+          <p v-if="status && !accountPanelOpen" class="inline-status" :class="{ 'is-success': statusIsSuccess }" :role="statusIsSuccess ? 'status' : 'alert'">{{ status }}</p>
           <form class="entry-form" @submit.prevent="openFairByCode">
             <label for="fair-code">Fair code</label>
             <input id="fair-code" v-model="fairCode" maxlength="8" autocomplete="off" autocapitalize="characters"
@@ -61,7 +61,7 @@
           <button class="text-button back-button" type="button" @click="landingView = 'enter'">← Back</button>
           <div class="eyebrow">Discover</div>
           <h1>Public fairs</h1>
-          <p v-if="status && !accountPanelOpen" class="inline-status" role="alert">{{ status }}</p>
+          <p v-if="status && !accountPanelOpen" class="inline-status" :class="{ 'is-success': statusIsSuccess }" :role="statusIsSuccess ? 'status' : 'alert'">{{ status }}</p>
           <div class="browse-tools">
             <label for="public-search">Search fairs</label>
             <input id="public-search" v-model="publicQuery" type="search" placeholder="Fair name or organizer" />
@@ -82,7 +82,7 @@
       <div v-if="accountPanelOpen" class="modal-backdrop" @click.self="accountPanelOpen = false">
         <section class="account-panel" role="dialog" aria-modal="true" :aria-label="accountPanelIntent === 'create' ? 'Create a fair' : 'Sign in'">
           <button type="button" class="close-button" aria-label="Close account panel" @click="accountPanelOpen = false">×</button>
-          <p v-if="status" class="inline-status" role="alert">{{ status }}</p>
+          <p v-if="status" class="inline-status" :class="{ 'is-success': statusIsSuccess }" :role="statusIsSuccess ? 'status' : 'alert'">{{ status }}</p>
           <template v-if="!account">
             <div class="eyebrow">{{ accountPanelIntent === 'create' ? 'Host on Roam' : 'Your account' }}</div>
             <h2>{{ mode === 'register' ? 'Create an account' : 'Sign in' }}</h2>
@@ -176,7 +176,7 @@
               <button type="button" class="panel-toggle" :aria-label="boothPanelExpanded ? 'Minimize booth details' : 'Expand booth details'" :aria-expanded="boothPanelExpanded" @click="boothPanelExpanded = !boothPanelExpanded">{{ boothPanelExpanded ? '−' : '+' }}</button>
             </div>
             <div v-show="boothPanelExpanded" class="booth-panel-body">
-            <p v-if="status && !directoryOpen && !accountPanelOpen" class="inline-status" role="alert">{{ status }}</p>
+            <p v-if="status && !directoryOpen && !accountPanelOpen" class="inline-status" :class="{ 'is-success': statusIsSuccess }" :role="statusIsSuccess ? 'status' : 'alert'">{{ status }}</p>
             <p v-if="displayDescription(selectedBooth.description)" class="booth-description">{{ displayDescription(selectedBooth.description) }}</p>
             <p class="representatives-line">Representatives:
               <span v-if="selectedBooth.representatives.length === 0">none assigned</span>
@@ -254,7 +254,7 @@
         <button class="directory-fab" type="button" :aria-label="directoryOpen ? 'Close booth directory' : 'Open booth directory'" :aria-expanded="directoryOpen" @click="directoryOpen = !directoryOpen"><span aria-hidden="true">☷</span></button>
         <div v-if="directoryOpen" class="directory-drawer" aria-label="Booth directory">
           <header class="drawer-header"><div><div class="eyebrow">Explore</div><h2>Booth directory</h2></div><button type="button" class="drawer-close" aria-label="Close booth directory" @click="directoryOpen = false">×</button></header>
-          <p v-if="status && !accountPanelOpen" class="inline-status" role="alert">{{ status }}</p>
+          <p v-if="status && !accountPanelOpen" class="inline-status" :class="{ 'is-success': statusIsSuccess }" :role="statusIsSuccess ? 'status' : 'alert'">{{ status }}</p>
         <details v-if="canManage" class="management-card" aria-label="Organizer tools">
           <summary>Fair settings &amp; add booth</summary>
           <p>Public listing: <strong>{{ fair.listed ? 'On' : 'Off' }}</strong></p>
