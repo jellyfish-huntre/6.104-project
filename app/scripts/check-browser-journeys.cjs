@@ -3,7 +3,7 @@ const { MongoClient } = require('mongodb');
 (async () => {
 const base = process.env.APP_URL ?? 'http://127.0.0.1:8080';
 const localApp = ['localhost', '127.0.0.1'].includes(new URL(base).hostname);
-const mongoUrl = process.env.MONGODB_URL ?? (localApp ? 'mongodb://dev:dev@127.0.0.1:27017/myapp?authSource=admin' : null);
+const mongoUrl = localApp ? process.env.MONGODB_URL ?? 'mongodb://dev:dev@127.0.0.1:27017/myapp?authSource=admin' : null;
 const suffix = crypto.randomUUID().replaceAll('-', '').slice(0, 8);
 const username = `qa_${suffix}`;
 const password = 'testpass123';
@@ -46,8 +46,13 @@ try {
   await host.getByRole('button', { name: /Enter the fair/ }).click();
   await host.locator('.map-avatar.own[aria-label*="(0, 0)"]').waitFor();
   await host.getByRole('button', { name: 'Select Robotics booth' }).click();
-  await walk(host, 'ArrowDown', 350);
-  await host.getByRole('button', { name: 'Open group call here' }).waitFor();
+  await walk(host, 'ArrowDown', 700);
+  await host.getByRole('button', { name: 'Open group call here' }).waitFor({ timeout: 7000 }).catch(async (error) => {
+    console.error('Host position:', await host.locator('.map-avatar.own').getAttribute('aria-label'));
+    console.error('Selected booth:', await host.locator('.booth-detail').innerText());
+    console.error('Saved presence:', JSON.stringify((await post('/fairs/presence', { fair })).presence.people.find((person) => person.person === username)?.position));
+    throw error;
+  });
   await host.getByRole('button', { name: 'Open group call here' }).click();
   await host.getByRole('button', { name: 'Close call', exact: true }).waitFor();
   console.log('Host opened group call from the booth.');
@@ -60,7 +65,7 @@ try {
   await guest.getByRole('button', { name: /Enter the fair/ }).click();
   await guest.locator('.map-avatar.own[aria-label*="(0, 0)"]').waitFor();
   await guest.getByRole('button', { name: 'Select Robotics booth' }).click();
-  await walk(guest, 'ArrowDown', 350);
+  await walk(guest, 'ArrowDown', 700);
   await guest.getByRole('button', { name: 'Open video call' }).waitFor();
   if (process.env.SCREENSHOT_DIR) await guest.screenshot({ path: `${process.env.SCREENSHOT_DIR}/open-group.png` });
   const groupPopupPromise = guest.waitForEvent('popup');

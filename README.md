@@ -34,12 +34,13 @@ The [P4 validation record](docs/p4-test-results.md) has the HTTP and browser jou
 
 ## Project materials
 
-| Start here | What it contains |
-| --- | --- |
-| [Final design](docs/p4-final-design.md) | The problem, key design decisions, and changes since P1 and P3. |
-| [P4 testing and validation](docs/p4-test-results.md) | Tests, commands, results, and evidence. |
-| [Demo outline](docs/p4-demo-outline.md) | A narrated walkthrough of the public app, capped at three minutes. |
-| [Concept specifications](docs/p4-final-design.md#the-boundaries-that-keep-this-consistent) and [composition](app/design/compositions/Roam.md) | The active concepts and reactions behind Roam. |
-| [Type bindings](app/design/types.md) and [visual direction](app/design/visual-direction.md) | Shared design details. |
+| Start here                                                                                                                                    | What it contains                                                   |
+| --------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| [Final design](docs/p4-final-design.md)                                                                                                       | The problem, key design decisions, and changes since P1 and P3.    |
+| [P4 testing and validation](docs/p4-test-results.md)                                                                                          | Tests, commands, results, and evidence.                            |
+| [Demo outline](docs/p4-demo-outline.md)                                                                                                       | A narrated walkthrough of the public app, capped at three minutes. |
+| [P4 recording](https://youtu.be/AwPKYoqGMho)                                                                                                 | The narrated final demo.                                           |
+| [Concept specifications](docs/p4-final-design.md#the-boundaries-that-keep-this-consistent) and [composition](app/design/compositions/Roam.md) | The active concepts and reactions behind Roam.                     |
+| [Type bindings](app/design/types.md) and [visual direction](app/design/visual-direction.md)                                                   | Shared design details.                                             |
 
 Earlier milestones: [P1 design](docs/design.md), [P2 MVP journey](docs/p2.md) and [recording](https://youtu.be/pUZtNpgzewI), [P3 beta journey](docs/p3-user-journey.md), [P3 test record](docs/p3-test-results.md), and [P3 recording](https://youtu.be/6scuKE0KmRM).
