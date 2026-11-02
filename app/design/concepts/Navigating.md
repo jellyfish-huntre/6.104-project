@@ -8,7 +8,7 @@ Keep track of where people are in a shared space, so others can see who is prese
 
 A visitor enters a space at its entrance. As the visitor moves into a booth's area, their position changes for everyone viewing the space. Signed-in people use their account identity. Guests use a private random token, which Navigating turns into a public pseudonym. Guest presence expires after 30 seconds without a refresh; the token itself is never returned in the public presence list.
 
-Free walking uses fractional cell coordinates. Each update is limited by distance and elapsed time. The composition checks the path against the current hall boundary and obstacles. The original one-cell action remains for older clients.
+Free walking uses fractional cell coordinates. Each update is limited by elapsed time and a bounded maximum segment length, so a delayed network response can carry the distance walked during that response. The composition checks the entire segment against the current hall boundary and obstacles. The original one-cell action remains for older clients.
 
 ## Types
 

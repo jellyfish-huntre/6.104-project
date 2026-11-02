@@ -31,7 +31,7 @@ function validFreeStep(current: Presence, destination: Position, now: Date) {
   const elapsed = current.movedAt ? Math.max(0, now.getTime() - current.movedAt.getTime()) / 1000 : 0.1;
   return Number.isFinite(destination?.x) && Number.isFinite(destination?.y) &&
     destination.x >= 0 && destination.y >= 0 &&
-    distance > 0 && distance <= 0.32 && distance <= 3 * elapsed + 0.12;
+    distance > 0 && distance <= 1.6 && distance <= 3 * elapsed + 0.12;
 }
 
 export class NavigatingConcept {

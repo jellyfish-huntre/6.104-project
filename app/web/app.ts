@@ -49,6 +49,7 @@ const avatarPalette = [
 ];
 const walkStepMs = 420;
 const walkSpeed = 2.2;
+const maxPredictionLead = 1.5;
 const movementSteps: Record<string, [number, number]> = {
   arrowup: [0, -1], w: [0, -1],
   arrowdown: [0, 1], s: [0, 1],
@@ -103,9 +104,10 @@ createApp({
     const heldMovementKeys = new Map<string, [number, number]>();
     let movementFrame = 0;
     let previousFrame = 0;
-    let lastSyncAt = 0;
+    let lastSyncSentAt = 0;
     let syncInFlight = false;
     const acknowledged = reactive({ x: 0, y: 0 });
+    const pendingPath: Array<{ x: number; y: number }> = [];
     const callUrl = ref("");
     const newCallMode = ref<"OPEN_GROUP" | "INVITE_ONLY">("OPEN_GROUP");
     const modeUrl = ref("");
@@ -280,7 +282,7 @@ createApp({
       if (movementFrame) cancelAnimationFrame(movementFrame);
       movementFrame = 0;
       previousFrame = 0;
-      moving.value = syncInFlight;
+      moving.value = syncInFlight || distance(avatar, acknowledged) >= 0.015;
       if (ownPerson.value) walkingByPerson[ownPerson.value] = false;
     }
     watch(accountPanelOpen, (open) => {
@@ -346,9 +348,12 @@ createApp({
         const changedFair = fair.value?.fair !== result.page.fair;
         if (changedFair) {
           clearHeldMovement();
+          pendingPath.length = 0;
+          lastSyncSentAt = 0;
           avatar.x = 0;
           avatar.y = 0;
           Object.assign(acknowledged, { x: 0, y: 0 });
+          moving.value = false;
           people.value = [];
           directoryOpen.value = false;
           pendingDeleteBoothId.value = null;
@@ -397,9 +402,12 @@ createApp({
       people.value = result.presence.people;
       const own = people.value.find((person) => person.person === ownPerson.value);
       joinedFair.value = !!own;
-      if (own && !moving.value) {
+      // An older presence response can arrive after a movement response.
+      if (own && !moving.value &&
+        (performance.now() - lastSyncSentAt > 500 || distance(own.position, acknowledged) < 0.015)) {
         Object.assign(acknowledged, own.position);
         avatar.x = own.position.x; avatar.y = own.position.y;
+        pendingPath.length = 0;
       }
     }
 
@@ -417,6 +425,8 @@ createApp({
       joinedFair.value = true;
       avatar.x = 0; avatar.y = 0;
       Object.assign(acknowledged, { x: 0, y: 0 });
+      pendingPath.length = 0;
+      lastSyncSentAt = 0;
       await refreshPresence(id);
     }
 
@@ -428,6 +438,8 @@ createApp({
       avatar.x = result.position.x;
       avatar.y = result.position.y;
       Object.assign(acknowledged, result.position);
+      pendingPath.length = 0;
+      lastSyncSentAt = 0;
       await refreshPresence(id);
     }
 
@@ -487,6 +499,9 @@ createApp({
         boothPanelExpanded.value = true;
         joinedFair.value = false;
         people.value = [];
+        pendingPath.length = 0;
+        lastSyncSentAt = 0;
+        moving.value = false;
         for (const timer of walkTimers.values()) clearTimeout(timer);
         walkTimers.clear();
         for (const person of Object.keys(walkingByPerson)) delete walkingByPerson[person];
@@ -550,6 +565,7 @@ createApp({
     async function signOut() {
       busy.value = true;
       try {
+        clearHeldMovement();
         if (joinedFair.value) await client.fairs.leave({});
         const result = await client.auth["sign-out"]({});
         if ("error" in result) {
@@ -561,6 +577,9 @@ createApp({
         joinedFair.value = false;
         people.value = [];
         avatar.x = 0; avatar.y = 0;
+        pendingPath.length = 0;
+        lastSyncSentAt = 0;
+        moving.value = false;
         if (fair.value) await enterGuest(fair.value.fair);
         status.value = "";
       } catch {
@@ -1002,18 +1021,36 @@ createApp({
       if (syncInFlight || !fair.value || !joinedFair.value || distance(avatar, acknowledged) < 0.015) return;
       const fairId = fair.value.fair;
       const before = { ...acknowledged };
-      const gap = distance(avatar, acknowledged);
-      // Key release may sync immediately after the prior update. Stay below the
-      // server's distance allowance even when almost no time has elapsed.
-      const elapsed = Math.max(0, (performance.now() - lastSyncAt) / 1000);
-      const fraction = Math.min(1, Math.min(0.28, 0.08 + 3 * elapsed) / gap);
-      const destination = {
-        x: Number((acknowledged.x + (avatar.x - acknowledged.x) * fraction).toFixed(3)),
-        y: Number((acknowledged.y + (avatar.y - acknowledged.y) * fraction).toFixed(3)),
-      };
+      // The next request can cover time spent waiting for the previous one.
+      // Keep below the server's speed allowance, including its first-move limit.
+      const elapsed = lastSyncSentAt ? (performance.now() - lastSyncSentAt) / 1000 : 0;
+      const allowance = lastSyncSentAt ? Math.min(1.6, 0.08 + 2.5 * elapsed) : 0.3;
+      if (!pendingPath.length) pendingPath.push({ ...avatar });
+      let destinationIndex = -1;
+      let pathBlocked = false;
+      for (const [index, point] of pendingPath.entries()) {
+        if (distance(before, point) > allowance) break;
+        if (!walkableSegment(before, point, obstacles.value, mapExtent.value)) {
+          pathBlocked = true;
+          break;
+        }
+        if (distance(before, point) >= 0.015) destinationIndex = index;
+      }
+      if (destinationIndex < 0) {
+        if (pathBlocked) {
+          avatar.x = before.x; avatar.y = before.y;
+          pendingPath.length = 0;
+          clearHeldMovement();
+        } else if (!heldMovementKeys.size) {
+          setTimeout(() => void syncFreePosition(), 60);
+        }
+        return;
+      }
+      const point = pendingPath[destinationIndex]!;
+      const destination = { x: Number(point.x.toFixed(3)), y: Number(point.y.toFixed(3)) };
       syncInFlight = true;
       moving.value = true;
-      lastSyncAt = performance.now();
+      lastSyncSentAt = performance.now();
       try {
         const result = account.value
           ? await client.fairs["move-free"]({ destination })
@@ -1021,6 +1058,7 @@ createApp({
         if (fair.value?.fair !== fairId) return;
         if ("error" in result) {
           avatar.x = before.x; avatar.y = before.y;
+          pendingPath.length = 0;
           if (result.error !== "INVALID_REQUEST")
             status.value = messageFor(result.error);
           clearHeldMovement();
@@ -1029,6 +1067,7 @@ createApp({
           return;
         }
         Object.assign(acknowledged, destination);
+        pendingPath.splice(0, destinationIndex + 1);
         const oldBooth = fair.value.booths.find(({ footprint }) => boothContains(footprint, before));
         const newBooth = fair.value.booths.find(({ footprint }) => boothContains(footprint, destination));
         if (newBooth && newBooth.booth !== oldBooth?.booth) selectBooth(newBooth.booth, false);
@@ -1036,13 +1075,13 @@ createApp({
       } catch {
         if (fair.value?.fair === fairId) {
           avatar.x = before.x; avatar.y = before.y;
+          pendingPath.length = 0;
           status.value = "Could not reach the server. Try again.";
           clearHeldMovement();
         }
       } finally {
         syncInFlight = false;
-        lastSyncAt = performance.now();
-        moving.value = heldMovementKeys.size > 0;
+        moving.value = heldMovementKeys.size > 0 || distance(avatar, acknowledged) >= 0.015;
         if (!heldMovementKeys.size && fair.value?.fair === fairId && distance(avatar, acknowledged) >= 0.015) {
           setTimeout(() => void syncFreePosition(), 110);
         }
@@ -1060,8 +1099,8 @@ createApp({
       const direction = [...heldMovementKeys.values()].reduce((sum, step) =>
         [sum[0] + step[0], sum[1] + step[1]] as [number, number], [0, 0] as [number, number]);
       const magnitude = Math.hypot(...direction);
-      if (magnitude && distance(avatar, acknowledged) < 0.28) {
-        const stepLength = Math.min(walkSpeed * delta, 0.28 - distance(avatar, acknowledged));
+      if (magnitude && distance(avatar, acknowledged) < maxPredictionLead) {
+        const stepLength = Math.min(walkSpeed * delta, maxPredictionLead - distance(avatar, acknowledged));
         const dx = direction[0] / magnitude * stepLength;
         const dy = direction[1] / magnitude * stepLength;
         const current = { x: avatar.x, y: avatar.y };
@@ -1079,9 +1118,11 @@ createApp({
           else facingByPerson[ownPerson.value] = dy > 0 ? "down" : "up";
           walkingByPerson[ownPerson.value] = distance(current, avatar) > 0.001;
         }
+        if (distance(current, avatar) > 0.001)
+          pendingPath.push({ x: avatar.x, y: avatar.y });
       }
       moving.value = true;
-      if (now - lastSyncAt >= 90) void syncFreePosition();
+      if (now - lastSyncSentAt >= 90) void syncFreePosition();
       movementFrame = requestAnimationFrame(movementTick);
     }
 

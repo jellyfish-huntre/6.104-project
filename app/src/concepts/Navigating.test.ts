@@ -58,6 +58,12 @@ test("free walking accepts short fractional updates and refuses jumps", async ()
   }]);
   await expect(navigating.moveFree({ person: "walker", destination: { x: 1.2, y: 0 } }))
     .rejects.toBeInstanceOf(InvalidMove);
+  await db.collection<{ _id: string; movedAt?: Date }>("navigating.presences").updateOne(
+    { _id: "walker" }, { $set: { movedAt: new Date(Date.now() - 500) } },
+  );
+  await navigating.moveFree({ person: "walker", destination: { x: 1.3, y: 0 } });
+  await expect(navigating.moveFree({ person: "walker", destination: { x: 3, y: 0 } }))
+    .rejects.toBeInstanceOf(InvalidMove);
   await expect(navigating.moveFree({ person: "walker", destination: { x: -0.1, y: 0 } }))
     .rejects.toBeInstanceOf(InvalidMove);
   const token = crypto.randomUUID();
