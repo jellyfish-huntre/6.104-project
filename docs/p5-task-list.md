@@ -2,7 +2,7 @@
 
 This is the task plan I used for the two studies. The actual timing and deviations are recorded after the facilitator transitions.
 
-Roam is meant to help someone find a conversation they did not schedule in advance, then keep exploring if the person they want to meet is busy. I planned to use the same tasks with two participants, allowing about 40 minutes for tasks and 20 minutes for a debrief. The times below were guides.
+The tasks follow one visit from entering the fair to leaving it. I wanted to see whether someone could find a conversation they had not scheduled, then keep exploring while they waited for a private turn. I planned the same tasks for two participants, allowing about 40 minutes for tasks and 20 minutes for a debrief. The times below were guides.
 
 The participant opens [Roam](https://roam.mit-sdg.dev/) in a fresh guest session with the Demo Fair code `3BC7D6B4`. The six booths and the representative-controlled call states are described in the [study setup](p5-study-setup.md). I will ask the participant to think aloud, let them try to recover from difficulties, and record any help I give.
 
