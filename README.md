@@ -34,6 +34,8 @@ The [P4 validation record](docs/p4-test-results.md) has the HTTP and browser jou
 
 ## Project materials
 
+For P5, start with the [task plan and actual conduct](docs/p5-task-list.md), then read the [participant reports](docs/p5-study-reports.md) and [prioritized findings](docs/p5-design-findings.md). The [Demo Fair setup](docs/p5-study-setup.md) describes the six persisted booths and how the representative prepared the live call states. Booth data remains in the deployed fair; a representative must be present to make a call live, so the call state may differ when you visit later.
+
 | Start here                                                                                                                                    | What it contains                                                   |
 | --------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
 | [Final design](docs/p4-final-design.md)                                                                                                       | The problem, key design decisions, and changes since P1 and P3.    |
@@ -41,6 +43,7 @@ The [P4 validation record](docs/p4-test-results.md) has the HTTP and browser jou
 | [P5 user study tasks](docs/p5-task-list.md)                                                                                                    | Participant goals, reasons for each task, and facilitator transitions. |
 | [P5 study reports](docs/p5-study-reports.md)                                                                                                    | Observations and analysis from two participant sessions. |
 | [P5 design findings](docs/p5-design-findings.md)                                                                                               | Prioritized issues and opportunities, with evidence, improvements, levels, and severity. |
+| [P5 study setup](docs/p5-study-setup.md)                                                                                                     | The populated fair, call setup, and reset procedure used for the studies. |
 | [Demo outline](docs/p4-demo-outline.md)                                                                                                       | A narrated walkthrough of the public app, capped at three minutes. |
 | [P4 recording](https://youtu.be/AwPKYoqGMho)                                                                                                 | The narrated final demo.                                           |
 | [Concept specifications](docs/p4-final-design.md#the-boundaries-that-keep-this-consistent) and [composition](app/design/compositions/Roam.md) | The active concepts and reactions behind Roam.                     |
